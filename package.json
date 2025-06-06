@@ -11,14 +11,13 @@
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "^2.1.2",
-    "bip32": "^5.0.0-rc.0",
-    "bip39": "^3.1.0",
-    "bitcoinjs-lib": "^6.1.7",
+    "expo-linear-gradient": "^14.1.4",
     "react": "19.0.0",
     "react-native": "0.79.2",
     "react-native-get-random-values": "^1.11.0",
     "react-native-keychain": "^10.0.0",
     "react-native-qrcode-scanner": "^1.5.5",
+    "react-native-reanimated": "^3.18.0",
     "react-native-webview": "^13.13.5"
   },
   "devDependencies": {

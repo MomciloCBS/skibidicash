@@ -1,76 +1,182 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { WebView } from 'react-native-webview';
+import { SkibidiColors } from '../theme/SkibidiTheme';
 
 const htmlContent = `
 <!DOCTYPE html>
 <html>
   <head>
     <meta charset="UTF-8" />
-    <title>Skibidi Toilet 3D</title>
+    <title>Skibidi Loader</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <style>
-      body { margin: 0; overflow: hidden; }
-      canvas { width: 100%; height: 100% }
+      body { 
+        margin: 0; 
+        overflow: hidden; 
+        background: transparent;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        font-family: Arial, sans-serif;
+      }
+      .loading-container {
+        text-align: center;
+        color: rgba(255, 255, 255, 0.9);
+        font-size: 18px;
+        font-weight: bold;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+      }
+      .spinner {
+        width: 50px;
+        height: 50px;
+        border: 5px solid rgba(255, 255, 255, 0.3);
+        border-top: 5px solid rgba(255, 255, 255, 1);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        margin: 0 auto 20px;
+      }
+      .meme-text {
+        font-size: 16px;
+        transition: opacity 0.1s ease;
+        min-height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
     </style>
   </head>
   <body>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.155.0/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.155.0/examples/js/loaders/GLTFLoader.js"></script>
+    <div class="loading-container">
+      <div class="spinner"></div>
+      <div id="meme-text" class="meme-text">🚽 Spawning Skibidi...</div>
+    </div>
 
     <script>
-      const scene = new THREE.Scene();
-      const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      document.body.appendChild(renderer.domElement);
+      // 🔥 MEME MESSAGES ARRAY
+      const memeMessages = [
+        "🗿 Summoning Sigma...",
+        "💀 Loading Ohio Energy...",
+        "😎 Downloading Rizz...",
+        "🔥 Calibrating Chaos...",
+        "🧠 Buffering Brainrot...",
+        "💀 Installing Cringe...",
+        "🗿 Generating Gigachad...",
+        "👨‍🍳 Cooking Content...",
+        "🎭 Spawning Shenanigans...",
+        "🌪️ Brewing Madness...",
+        "⚡ Charging Charisma...",
+        "✨ Activating Aura...",
+        "🏆 Loading Legends...",
+        "💧 Downloading Drip...",
+        "🤪 Installing Insanity...",
+        "😂 Generating Giggles...",
+        "💯 Buffering Based...",
+        "🔥 Cooking Chaos...",
+        "🚽 Spawning Skibidi...",
+        "📚 Loading Lore...",
+        "🎮 Booting Brainrot...",
+        "🤯 Processing Sigma...",
+        "💪 Flexing on Ohio...",
+        "🎯 Targeting Cringe...",
+        "🌟 Manifesting Memes...",
+        "🎪 Circus Mode Active...",
+        "🔮 Predicting Chaos...",
+        "🎲 Rolling Sigma...",
+        "🌈 Rainbow Rizz Loading...",
+        "🎭 Drama Mode Engaged..."
+      ];
 
-      const ambientLight = new THREE.AmbientLight(0xffffff, 1.5);
-      scene.add(ambientLight);
+      let messageInterval;
 
-      const loader = new THREE.GLTFLoader();
-      loader.load('../assets/models/skibidi.glb', (gltf) => {
-        const model = gltf.scene;
-        model.scale.set(1.2, 1.2, 1.2);
-        scene.add(model);
-        animate(model);
-      }, undefined, (error) => {
-        console.error('GLB Load Error:', error);
-      });
-
-      camera.position.z = 2;
-
-      function animate(model) {
-        function frame() {
-          requestAnimationFrame(frame);
-          model.rotation.y += 0.01;
-          renderer.render(scene, camera);
+      // 🎭 START MEME CHAOS FUNCTION
+      function startMemeMessages() {
+        const textElement = document.getElementById('meme-text');
+        
+        if (textElement) {
+          console.log('🎭 Starting meme chaos!');
+          
+          // Change message immediately on start
+          textElement.textContent = memeMessages[Math.floor(Math.random() * memeMessages.length)];
+          
+          // Continue cycling messages
+          messageInterval = setInterval(() => {
+            const randomIndex = Math.floor(Math.random() * memeMessages.length);
+            textElement.textContent = memeMessages[randomIndex];
+          }, 150); // Fast cycling every 150ms
         }
-        frame();
       }
+
+      // 🚀 START MEMES IMMEDIATELY - Multiple triggers for reliability
+      document.addEventListener('DOMContentLoaded', startMemeMessages);
+      
+      // Backup triggers
+      setTimeout(startMemeMessages, 10);   // Almost immediate
+      setTimeout(startMemeMessages, 100);  // Secondary backup
+      
+      // Also start when scripts are ready
+      window.addEventListener('load', startMemeMessages);
+
+      // Optional: Stop messages after a certain time (if needed)
+      // setTimeout(() => {
+      //   if (messageInterval) {
+      //     clearInterval(messageInterval);
+      //   }
+      // }, 10000); // Stop after 10 seconds
     </script>
   </body>
 </html>
 `;
 
-const SkibidiLoader: React.FC = () => {
+interface SkibidiLoaderProps {
+  onLoadComplete?: () => void;
+  duration?: number; // Optional duration in milliseconds
+}
+
+const SkibidiLoader: React.FC<SkibidiLoaderProps> = ({ onLoadComplete, duration = 3000 }) => {
+  React.useEffect(() => {
+    if (onLoadComplete && duration) {
+      const timer = setTimeout(onLoadComplete, duration);
+      return () => clearTimeout(timer);
+    }
+  }, [onLoadComplete, duration]);
+
   return (
     <View style={styles.container}>
       <WebView
         originWhitelist={['*']}
         source={{ html: htmlContent }}
         style={styles.webview}
-        javaScriptEnabled
-        domStorageEnabled
-        allowFileAccess
+        javaScriptEnabled={true}activeAccount
+        opaque={false}
+        backgroundColor="transparent"
+        allowsInlineMediaPlayback={true}
+        mediaPlaybackRequiresUserAction={false}
       />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: 'red', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1000 },
-  webview: { flex: 1 },
+  container: { 
+    flex: 1, 
+    backgroundColor: SkibidiColors.darkChaos,
+    position: 'absolute', 
+    top: 0, 
+    left: 0, 
+    right: 0, 
+    bottom: 0, 
+    zIndex: 1000,
+  },
+  webview: { 
+    flex: 1,
+    backgroundColor: 'transparent'
+  },
 });
 
 export default SkibidiLoader;
