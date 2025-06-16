@@ -15,6 +15,7 @@ import {
   TransactionsContentProps, 
   GameContentProps 
 } from '../types/content/ContentProps';
+import { QrCodeReceiveModal } from "../components/QRCodeModal";
 
 export function HomeContent({ 
   activeAccount, 
@@ -27,6 +28,7 @@ export function HomeContent({
 }: HomeContentProps) {
   const balanceScaleAnim = useRef(new Animated.Value(1)).current;
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showQrModal, setShowQrModal] = useState(false);
 
   useEffect(() => {
     Animated.loop(
@@ -70,29 +72,37 @@ export function HomeContent({
       );
       return;
     }
+    return (
+      <QrCodeReceiveModal
+        visible={showQrModal}
+        onClose={() => setShowQrModal(false)}
+        address={activeAccount?.paymentsAddress || ''}
+        amount={5000} // optional
+        description="Skibidi Donation" // optional
+      />
+    )
 
-    Alert.prompt(
-      '⚡ Quick Send',
-      'Enter Lightning invoice, address, or Lightning address:',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Send',
-          onPress: async (destination) => {
-            if (destination?.trim()) {
-              try {
-                await onSendPayment(destination.trim());
-              } catch (error) {
-                // Error handling is done in the parent function
-              }
-            }
-          }
-        }
-      ],
-      'plain-text',
-      '',
-      'default'
-    );
+    //   '⚡ Quick Send',
+    //   'Enter Lightning invoice, address, or Lightning address:',
+    //   [
+    //     { text: 'Cancel', style: 'cancel' },
+    //     {
+    //       text: 'Send',
+    //       onPress: async (destination) => {
+    //         if (destination?.trim()) {
+    //           try {
+    //             await onSendPayment(destination.trim());
+    //           } catch (error) {
+    //             // Error handling is done in the parent function
+    //           }
+    //         }
+    //       }
+    //     }
+    //   ],
+    //   'plain-text',
+    //   '',
+    //   'default'
+    // );
   };
 
   const handleQuickReceive = () => {
@@ -107,30 +117,16 @@ export function HomeContent({
       );
       return;
     }
-
-    Alert.prompt(
-      '💰 Quick Receive',
-      'Enter amount in sats:',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Create Invoice',
-          onPress: async (amountStr) => {
-            const amount = parseInt(amountStr || '1000');
-            if (amount > 0) {
-              try {
-                await onReceivePayment(amount, 'Skibidi Cash payment 🚽⚡');
-              } catch (error) {
-                // Error handling is done in the parent function
-              }
-            }
-          }
-        }
-      ],
-      'plain-text',
-      '1000',
-      'default'
-    );
+    return (
+      <QrCodeReceiveModal
+        visible={showQrModal}
+        onClose={() => setShowQrModal(false)}
+        address={activeAccount?.paymentsAddress || ''}
+        amount={5000} // optional
+        description="Skibidi Donation" // optional
+      />  
+    )
+  
   };
 
   // Use real Lightning balance if available, otherwise fall back to account balance

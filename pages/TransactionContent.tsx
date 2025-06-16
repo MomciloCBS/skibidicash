@@ -2,9 +2,9 @@ import { ScrollView, View, Text, TouchableOpacity, RefreshControl, Alert } from 
 import { useState, useEffect } from "react";
 import { styles } from "../styles/AppStyles";
 import { TransactionsContentProps } from "../types/content/ContentProps";
-import { BreezSDKService } from "../services/BreezSDKService";
 import { PaymentService } from "../services/PaymentService";
 import { Payment, PaymentType, PaymentState } from "@breeztech/react-native-breez-sdk-liquid";
+import { useBreez } from "../components/BreezProvider";
 
 interface TransactionItem {
   id: string;
@@ -21,9 +21,10 @@ interface TransactionItem {
 export function TransactionsContent({ 
   activeAccount, 
   walletInfo, 
-  breezConnected, 
   onUpdateBalance 
 }: TransactionsContentProps) {
+  const { isConnected: breezConnected, isLoading: breezLoading, getPaymentHistory } = useBreez();
+
   const [transactions, setTransactions] = useState<TransactionItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -42,9 +43,9 @@ export function TransactionsContent({
     setError(null);
 
     try {
-      const payments = await BreezSDKService.getRecentPayments();
-      const transformed = payments.map((payment): TransactionItem => ({
-        id: PaymentService.getPaymentId(payment),
+      const payments = await getPaymentHistory();
+      const transformed = payments.map((payment: Payment): TransactionItem => ({
+        id: payment.txId || `${payment.timestamp}`,
         type: payment.paymentType === PaymentType.SEND ? 'send' : 'receive',
         amount: payment.amountSat,
         fees: payment.feesSat,
@@ -116,13 +117,13 @@ export function TransactionsContent({
     );
   };
 
-  if (!breezConnected) {
+  if (!breezConnected || breezLoading) {
     return (
       <View style={styles.placeholderContent}>
         <Text style={styles.placeholderEmoji}>⚡</Text>
-        <Text style={styles.placeholderTitle}>Lightning Not Connected</Text>
+        <Text style={styles.placeholderTitle}>Lightning Not Ready</Text>
         <Text style={styles.placeholderText}>
-          Connect to view your glorious Skibidi transactions.
+          Waiting for Lightning to boot up the flush system...
         </Text>
       </View>
     );
@@ -146,9 +147,7 @@ export function TransactionsContent({
       style={styles.contentContainer}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
-      <Text style={[styles.transactionHeaderTitle, { textAlign: 'center', fontSize: 20 }]}>
-        🧻 Skibidi Transactions
-      </Text>
+      <Text style={[styles.transactionHeaderTitle, { textAlign: 'center', fontSize: 20 }]}>🧻 Skibidi Transactions</Text>
 
       {transactions.length === 0 && !loading && (
         <View style={styles.placeholderContent}>
