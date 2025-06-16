@@ -1,4 +1,3 @@
-// pages/TransactionsContent.tsx - Updated with Breez SDK Transaction History
 import { ScrollView, View, Text, TouchableOpacity, RefreshControl, Alert } from "react-native";
 import { useState, useEffect } from "react";
 import { styles } from "../styles/AppStyles";
@@ -39,134 +38,46 @@ export function TransactionsContent({
   const loadTransactions = async (isRefresh = false) => {
     if (!breezConnected) return;
 
-    if (isRefresh) {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
-    }
+    isRefresh ? setRefreshing(true) : setLoading(true);
     setError(null);
 
-    // try {
-    //   console.log('🔍 Loading transaction history...');
-      
-    //   // Fetch recent payments from Breez SDK
-    //   const payments = await BreezSDKService.getRecentPayments();
-      
-    //   console.log(`📊 Found ${payments.length} transactions`);
-
-    //   // Transform payments to our transaction format
-    //   const transformedTransactions: TransactionItem[] = payments.map((payment) => ({
-    //     id: PaymentService.getPaymentId(payment),
-    //     type: payment.paymentType === PaymentType.SEND ? 'send' : 'receive',
-    //     amount: payment.amountSat,
-    //     fees: payment.feesSat,
-    //     status: mapPaymentStatus(payment.status),
-    //     date: new Date(payment.timestamp * 1000),
-    //     description: getPaymentDescription(payment),
-    //     destination: payment.destination,
-    //     txId: payment.txId,
-    //   }));
-
-    //   // Sort by date (newest first)
-    //   transformedTransactions.sort((a, b) => b.date.getTime() - a.date.getTime());
-
-    //   setTransactions(transformedTransactions);
-    // } catch (error: any) {
-    //   console.error('Failed to load transactions:', error);
-    //   setError(`Failed to load transactions: ${error.message}`);
-    // } finally {
-    //   setLoading(false);
-    //   setRefreshing(false);
-    // }
+    try {
+      const payments = await BreezSDKService.getRecentPayments();
+      const transformed = payments.map((payment): TransactionItem => ({
+        id: PaymentService.getPaymentId(payment),
+        type: payment.paymentType === PaymentType.SEND ? 'send' : 'receive',
+        amount: payment.amountSat,
+        fees: payment.feesSat,
+        status: mapPaymentStatus(payment.status),
+        date: new Date(payment.timestamp * 1000),
+        description: getPaymentDescription(payment),
+        destination: payment.destination,
+        txId: payment.txId,
+      }));
+      transformed.sort((a, b) => b.date.getTime() - a.date.getTime());
+      setTransactions(transformed);
+    } catch (err: any) {
+      console.error("Failed to load:", err);
+      setError(`Couldn't load transactions: ${err.message}`);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   };
 
   const mapPaymentStatus = (status: PaymentState): 'pending' | 'complete' | 'failed' => {
     switch (status) {
-      case PaymentState.COMPLETE:
-        return 'complete';
+      case PaymentState.COMPLETE: return 'complete';
       case PaymentState.PENDING:
       case PaymentState.CREATED:
-      case PaymentState.WAITING_FEE_ACCEPTANCE:
-        return 'pending';
-      case PaymentState.FAILED:
-      case PaymentState.TIMED_OUT:
-      case PaymentState.REFUNDABLE:
-      case PaymentState.REFUND_PENDING:
-        return 'failed';
-      default:
-        return 'pending';
+      case PaymentState.WAITING_FEE_ACCEPTANCE: return 'pending';
+      default: return 'failed';
     }
   };
 
   const getPaymentDescription = (payment: Payment): string => {
-    if (payment.details) {
-      switch (payment.details.type) {
-        case 'lightning':
-          return payment.details.description || 'Lightning Payment';
-        case 'bitcoin':
-          return payment.details.description || 'Bitcoin Payment';
-        case 'liquid':
-          return payment.details.description || 'Liquid Payment';
-        default:
-          return 'Payment';
-      }
-    }
-    return 'Payment';
-  };
-
-  const getStatusColor = (status: 'pending' | 'complete' | 'failed') => {
-    switch (status) {
-      case 'complete':
-        return '#00FF88';
-      case 'pending':
-        return '#FFD700';
-      case 'failed':
-        return '#FF6B6B';
-      default:
-        return '#888888';
-    }
-  };
-
-  const getStatusIcon = (status: 'pending' | 'complete' | 'failed') => {
-    switch (status) {
-      case 'complete':
-        return '✅';
-      case 'pending':
-        return '⏳';
-      case 'failed':
-        return '❌';
-      default:
-        return '❓';
-    }
-  };
-
-  const getTypeIcon = (type: 'send' | 'receive') => {
-    return type === 'send' ? '📤' : '📥';
-  };
-
-  const handleTransactionPress = (transaction: TransactionItem) => {
-    const statusText = transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1);
-    const typeText = transaction.type === 'send' ? 'Sent' : 'Received';
-    
-    Alert.alert(
-      `${typeText} ${PaymentService.formatAmount(transaction.amount)}`,
-      `Status: ${statusText}\n` +
-      `Amount: ${PaymentService.formatAmount(transaction.amount)}\n` +
-      `Fees: ${PaymentService.formatAmount(transaction.fees)}\n` +
-      `Date: ${transaction.date.toLocaleString()}\n` +
-      `Description: ${transaction.description}\n` +
-      (transaction.txId ? `TX ID: ${transaction.txId.substring(0, 20)}...` : ''),
-      [
-        { text: 'OK' },
-        ...(transaction.txId ? [{ 
-          text: 'Copy TX ID', 
-          onPress: () => {
-            // Copy to clipboard
-            Alert.alert('📋 Copied', 'Transaction ID copied to clipboard');
-          }
-        }] : [])
-      ]
-    );
+    if (payment.details?.description) return payment.details.description;
+    return payment.paymentType === PaymentType.SEND ? 'Sent sats' : 'Received sats';
   };
 
   const onRefresh = async () => {
@@ -174,147 +85,109 @@ export function TransactionsContent({
     await onUpdateBalance();
   };
 
+  const getStatusEmoji = (status: TransactionItem['status']) => {
+    switch (status) {
+      case 'complete': return '✅';
+      case 'pending': return '⏳';
+      case 'failed': return '❌';
+      default: return '❓';
+    }
+  };
+
+  const getAmountColor = (type: TransactionItem['type']) =>
+    type === 'send' ? '#FF6B6B' : '#00FF88';
+
+  const getStatusColor = (status: TransactionItem['status']) => {
+    switch (status) {
+      case 'complete': return '#00FF88';
+      case 'pending': return '#FFD700';
+      case 'failed': return '#FF6B6B';
+      default: return '#aaa';
+    }
+  };
+
+  const handleTransactionPress = (tx: TransactionItem) => {
+    const txType = tx.type === 'send' ? 'Sent' : 'Received';
+    const statusText = tx.status.charAt(0).toUpperCase() + tx.status.slice(1);
+    Alert.alert(
+      `${txType} ${PaymentService.formatAmount(tx.amount)}`,
+      `Status: ${statusText}\nAmount: ${tx.amount} sats\nFees: ${tx.fees} sats\n${tx.date.toLocaleString()}\n${tx.description}`,
+      [{ text: 'OK' }]
+    );
+  };
+
   if (!breezConnected) {
     return (
-      <ScrollView style={styles.contentContainer}>
-        <View style={styles.placeholderContent}>
-          <Text style={styles.placeholderEmoji}>⚡</Text>
-          <Text style={styles.placeholderTitle}>Lightning Required</Text>
-          <Text style={styles.placeholderText}>
-            Connect to Lightning Network to view transaction history.
-          </Text>
-        </View>
-      </ScrollView>
+      <View style={styles.placeholderContent}>
+        <Text style={styles.placeholderEmoji}>⚡</Text>
+        <Text style={styles.placeholderTitle}>Lightning Not Connected</Text>
+        <Text style={styles.placeholderText}>
+          Connect to view your glorious Skibidi transactions.
+        </Text>
+      </View>
     );
   }
 
   if (error) {
     return (
-      <ScrollView style={styles.contentContainer}>
-        <View style={styles.placeholderContent}>
-          <Text style={styles.placeholderEmoji}>❌</Text>
-          <Text style={styles.placeholderTitle}>Error Loading Transactions</Text>
-          <Text style={styles.placeholderText}>{error}</Text>
-          <TouchableOpacity 
-            style={styles.retryButton} 
-            onPress={() => loadTransactions()}
-          >
-            <Text style={styles.retryButtonText}>🔄 Retry</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
+      <View style={styles.placeholderContent}>
+        <Text style={styles.placeholderEmoji}>💥</Text>
+        <Text style={styles.placeholderTitle}>Error</Text>
+        <Text style={styles.placeholderText}>{error}</Text>
+        <TouchableOpacity onPress={() => loadTransactions()} style={styles.retryButton}>
+          <Text style={styles.retryButtonText}>🔁 Retry</Text>
+        </TouchableOpacity>
+      </View>
     );
   }
 
   return (
-    <ScrollView 
+    <ScrollView
       style={styles.contentContainer}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
-      {/* Header */}
-      <View style={styles.transactionHeader}>
-        <Text style={styles.transactionHeaderTitle}>📊 Transaction History</Text>
-        <Text style={styles.transactionHeaderSubtitle}>
-          {transactions.length} transactions • Pull to refresh
-        </Text>
-      </View>
+      <Text style={[styles.transactionHeaderTitle, { textAlign: 'center', fontSize: 20 }]}>
+        🧻 Skibidi Transactions
+      </Text>
 
-      {/* Balance Summary */}
-      {walletInfo && (
-        <View style={styles.balanceSummary}>
-          <Text style={styles.balanceSummaryTitle}>Current Balance</Text>
-          <Text style={styles.balanceSummaryAmount}>
-            {PaymentService.formatAmount(walletInfo.balanceSat)}
-          </Text>
-          {(walletInfo.pendingReceiveSat > 0 || walletInfo.pendingSendSat > 0) && (
-            <View style={styles.pendingContainer}>
-              {walletInfo.pendingReceiveSat > 0 && (
-                <Text style={styles.pendingReceive}>
-                  +{PaymentService.formatAmount(walletInfo.pendingReceiveSat)} pending
-                </Text>
-              )}
-              {walletInfo.pendingSendSat > 0 && (
-                <Text style={styles.pendingSend}>
-                  -{PaymentService.formatAmount(walletInfo.pendingSendSat)} pending
-                </Text>
-              )}
-            </View>
-          )}
-        </View>
-      )}
-
-      {/* Transactions List */}
-      {loading && transactions.length === 0 ? (
-        <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>⚡ Loading transactions...</Text>
-        </View>
-      ) : transactions.length === 0 ? (
+      {transactions.length === 0 && !loading && (
         <View style={styles.placeholderContent}>
-          <Text style={styles.placeholderEmoji}>💸</Text>
-          <Text style={styles.placeholderTitle}>No Transactions Yet</Text>
-          <Text style={styles.placeholderText}>
-            Your Lightning payments and receipts will appear here.
-          </Text>
-        </View>
-      ) : (
-        <View style={styles.transactionsList}>
-          {transactions.map((transaction) => (
-            <TouchableOpacity
-              key={transaction.id}
-              style={styles.transactionItem}
-              onPress={() => handleTransactionPress(transaction)}
-            >
-              <View style={styles.transactionIcon}>
-                <Text style={styles.transactionTypeIcon}>
-                  {getTypeIcon(transaction.type)}
-                </Text>
-                <Text style={styles.transactionStatusIcon}>
-                  {getStatusIcon(transaction.status)}
-                </Text>
-              </View>
-              
-              <View style={styles.transactionDetails}>
-                <Text style={styles.transactionDescription}>
-                  {transaction.description}
-                </Text>
-                <Text style={styles.transactionDate}>
-                  {transaction.date.toLocaleDateString()} {transaction.date.toLocaleTimeString()}
-                </Text>
-                {transaction.destination && (
-                  <Text style={styles.transactionDestination}>
-                    To: {transaction.destination.substring(0, 20)}...
-                  </Text>
-                )}
-              </View>
-              
-              <View style={styles.transactionAmount}>
-                <Text style={[
-                  styles.transactionAmountText,
-                  { 
-                    color: transaction.type === 'send' ? '#FF6B6B' : '#00FF88' 
-                  }
-                ]}>
-                  {transaction.type === 'send' ? '-' : '+'}
-                  {PaymentService.formatAmount(transaction.amount)}
-                </Text>
-                {transaction.fees > 0 && (
-                  <Text style={styles.transactionFees}>
-                    Fee: {PaymentService.formatAmount(transaction.fees)}
-                  </Text>
-                )}
-                <Text style={[
-                  styles.transactionStatus,
-                  { color: getStatusColor(transaction.status) }
-                ]}>
-                  {transaction.status}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          ))}
+          <Text style={styles.placeholderEmoji}>🕳️</Text>
+          <Text style={styles.placeholderTitle}>No History Yet</Text>
+          <Text style={styles.placeholderText}>Spend more to earn your flush stripes.</Text>
         </View>
       )}
+
+      {transactions.map((tx, i) => (
+        <TouchableOpacity
+          key={`tx-${tx.id}-${i}`}
+          onPress={() => handleTransactionPress(tx)}
+          style={{
+            marginHorizontal: 20,
+            marginVertical: 10,
+            padding: 16,
+            backgroundColor: '#1a1a1a',
+            borderRadius: 12,
+            borderWidth: 1.5,
+            borderColor: getStatusColor(tx.status),
+          }}
+        >
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <Text style={{ color: getAmountColor(tx.type), fontSize: 18, fontWeight: 'bold' }}>
+              {tx.type === 'send' ? '-' : '+'}{PaymentService.formatAmount(tx.amount)} sats
+            </Text>
+            <Text style={{ fontSize: 16, color: getStatusColor(tx.status) }}>
+              {getStatusEmoji(tx.status)}
+            </Text>
+          </View>
+          <Text style={{ color: '#ccc', fontSize: 14, marginTop: 4 }}>
+            {tx.description}
+          </Text>
+          <Text style={{ color: '#555', fontSize: 12, marginTop: 4 }}>
+            {tx.date.toLocaleString()}
+          </Text>
+        </TouchableOpacity>
+      ))}
     </ScrollView>
   );
 }

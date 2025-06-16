@@ -1,9 +1,5 @@
-// utils/MnemonicUtils.ts
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// You'll need to install these packages:
-// npm install react-native-get-random-values
-// npm install bip39-expo or similar mnemonic library
 
 // Import random values polyfill for React Native
 import 'react-native-get-random-values';

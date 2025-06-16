@@ -1,4 +1,3 @@
-// components/Skibidi3DScene.tsx - Enhanced version with dynamic rotation speed
 import React, { useRef, useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { WebView } from 'react-native-webview';

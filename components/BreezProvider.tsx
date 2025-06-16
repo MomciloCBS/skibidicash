@@ -1,11 +1,12 @@
-// components/BreezProvider.tsx - Updated to use final Breez SDK Liquid API
 import React, { useEffect, useState, createContext, useContext } from 'react';
 import { View, Text, Alert, Vibration } from 'react-native';
 import { BreezSDKService, WalletInfo } from '../services/BreezSDKService';
 import { PaymentService, PaymentResult, InvoiceResult } from '../services/PaymentService';
 import { SdkEvent, SdkEventVariant, PaymentMethod } from '@breeztech/react-native-breez-sdk-liquid';
-import { BREEZ_API_KEY, MNEMONIC, NETWORK } from '@env';
+import { BREEZ_API_KEY } from '@env';
 import SkibidiFlushSplash from './SkibidiFlushSplash';
+import toiletPic from "../assets/toilet.png";
+import skibidiFace from "../assets/skibidi-face.png";
 
 interface BreezContextType {
   isConnected: boolean;
@@ -17,6 +18,7 @@ interface BreezContextType {
   createInvoice: (amountSats: number, description?: string, paymentMethod?: PaymentMethod) => Promise<InvoiceResult>;
   getPaymentHistory: () => Promise<any[]>;
   sync: () => Promise<void>;
+  initializeAfterWalletCreation: () => Promise<void>; 
 }
 
 const BreezContext = createContext<BreezContextType | null>(null);
@@ -44,13 +46,32 @@ export const BreezProvider: React.FC<BreezProviderProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    initializeBreezSDK();
+    // Only initialize Breez SDK if we have a mnemonic
+    checkAndInitialize();
     
     // Cleanup on unmount
     return () => {
       BreezSDKService.disconnect();
     };
   }, []);
+
+  const checkAndInitialize = async () => {
+    try {
+      // Check if mnemonic exists before trying to connect
+      const hasMnemonic = await BreezSDKService.hasMnemonic();
+      
+      if (hasMnemonic) {
+        console.log('🔑 Mnemonic found, initializing Breez SDK...');
+        await initializeBreezSDK();
+      } else {
+        console.log('🔑 No mnemonic found, waiting for wallet creation...');
+        setIsLoading(false);
+      }
+    } catch (error: any) {
+      console.error('Failed to check mnemonic:', error);
+      setIsLoading(false);
+    }
+  };
 
   const initializeBreezSDK = async () => {
     try {
@@ -61,7 +82,7 @@ export const BreezProvider: React.FC<BreezProviderProps> = ({
       
       await BreezSDKService.initialize({
         onEvent: handleBreezEvent,
-        network: NETWORK,
+        network,
         apiKey: BREEZ_API_KEY,
       });
 
@@ -79,7 +100,7 @@ export const BreezProvider: React.FC<BreezProviderProps> = ({
       setError(error.message);
       setIsConnected(false);
       
-      // Show user-friendly error
+      // Show user-friendly error only if we expect the SDK to connect
       Alert.alert(
         '⚡ Lightning Connection Failed',
         'Could not connect to the Lightning Network. You can retry or continue with limited functionality.',
@@ -231,33 +252,15 @@ export const BreezProvider: React.FC<BreezProviderProps> = ({
     return await BreezSDKService.sync();
   };
 
-  // Loading screen while initializing
+  // Method to trigger SDK initialization after wallet creation
+  const initializeAfterWalletCreation = async () => {
+    console.log('🔄 Initializing Breez SDK after wallet creation...');
+    await initializeBreezSDK();
+  };
+
+  // Loading screen while initializing (only if we expect to have a wallet)
   if (isLoading) {
-    return (
-    //   <View style={{
-    //     flex: 1,
-    //     alignItems: 'center',
-    //     justifyContent: 'center',
-    //     backgroundColor: '#1a1a1a',
-    //   }}>
-    //     <Text style={{ 
-    //       textAlign: 'center', 
-    //       color: '#ffffff',
-    //       fontSize: 18,
-    //       marginBottom: 10,
-    //     }}>
-    //       ⚡ Connecting to Lightning...
-    //     </Text>
-    //     <Text style={{ 
-    //       textAlign: 'center', 
-    //       color: '#888888',
-    //       fontSize: 14,
-    //     }}>
-    //       Powering up your Skibidi experience
-    //     </Text>
-    //   </View>
-    <SkibidiFlushSplash />
-    );
+    return <SkibidiFlushSplash toiletImage={toiletPic} skibidiImage={skibidiFace}  />;
   }
 
   const contextValue: BreezContextType = {
@@ -270,6 +273,7 @@ export const BreezProvider: React.FC<BreezProviderProps> = ({
     createInvoice,
     getPaymentHistory,
     sync,
+    initializeAfterWalletCreation
   };
 
   return (

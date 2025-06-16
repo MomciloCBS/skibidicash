@@ -13,7 +13,6 @@ export function AccountSelector({
   const lightningAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // Main pulse animation
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
@@ -33,7 +32,6 @@ export function AccountSelector({
   }, []);
 
   useEffect(() => {
-    // Lightning connection animation
     if (isLightningConnected) {
       Animated.loop(
         Animated.sequence([
@@ -57,11 +55,11 @@ export function AccountSelector({
   }, [isLightningConnected]);
 
   const getLightningStatusColor = () => {
-    return isLightningConnected ? '#FFD700' : '#666666'; // Gold when connected, gray when not
+    return isLightningConnected ? '#FFD700' : '#666666'; 
   };
 
   const getLightningStatusText = () => {
-    return isLightningConnected ? '⚡' : '⚡'; // Same icon, different opacity via animation
+    return isLightningConnected ? '⚡' : '⚡'; 
   };
 
   return (

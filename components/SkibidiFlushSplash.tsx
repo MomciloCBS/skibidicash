@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
+import skibidiFace from "../assets/skibidi-face.png";
+import toiletPic from '../assets/toilet.png';
 
 interface SkibidiFlushSplashProps {
   toiletImage?: ImageSourcePropType;
@@ -24,147 +26,186 @@ const SkibidiFlushSplash: React.FC<SkibidiFlushSplashProps> = ({
   toiletImage,
   skibidiImage,
   onAnimationComplete,
-  autoRestart = false, // Default to false to avoid timing issues
+  autoRestart = false,
   animationDuration = 3000,
 }) => {
-  // Simple animation values
   const rotationValue = useRef(new Animated.Value(0)).current;
   const scaleValue = useRef(new Animated.Value(1)).current;
   const opacityValue = useRef(new Animated.Value(1)).current;
-  const spiralValue = useRef(new Animated.Value(0)).current;
+  const flashingColor = useRef(new Animated.Value(0)).current;
+  const bouncingX = useRef(new Animated.Value(0)).current;
+  const bouncingY = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     startAnimation();
+
+    // Flashing color
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(flashingColor, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: false,
+        }),
+        Animated.timing(flashingColor, {
+          toValue: 0,
+          duration: 500,
+          useNativeDriver: false,
+        }),
+      ])
+    ).start();
+
+    // Bouncing X
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(bouncingX, {
+          toValue: width - 280,
+          duration: 3000,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: false,
+        }),
+        Animated.timing(bouncingX, {
+          toValue: 0,
+          duration: 3000,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: false,
+        }),
+      ])
+    ).start();
+
+    // Bouncing Y
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(bouncingY, {
+          toValue: height - 120,
+          duration: 2600,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: false,
+        }),
+        Animated.timing(bouncingY, {
+          toValue: 40,
+          duration: 2600,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: false,
+        }),
+      ])
+    ).start();
+
+    return () => {
+      rotationValue.stopAnimation();
+      scaleValue.stopAnimation();
+      opacityValue.stopAnimation();
+    };
   }, []);
 
   const startAnimation = () => {
-    // Reset values
     rotationValue.setValue(0);
     scaleValue.setValue(1);
     opacityValue.setValue(1);
-    spiralValue.setValue(0);
 
-    // Simple rotation animation
-    Animated.timing(rotationValue, {
-      toValue: 360 * 3, // 3 rotations
-      duration: animationDuration,
-      easing: Easing.linear,
-      useNativeDriver: false,
-    }).start();
-
-    // Spiral animation (simple version)
-    Animated.timing(spiralValue, {
-      toValue: 1,
-      duration: animationDuration,
-      easing: Easing.out(Easing.quad),
-      useNativeDriver: false,
-    }).start();
-
-    // Scale animation - zoom towards camera
-    Animated.sequence([
-      Animated.timing(scaleValue, {
-        toValue: 4, // Zoom IN dramatically (was 0.05 shrinking)
-        duration: animationDuration * 0.8,
-        easing: Easing.out(Easing.quad),
-        useNativeDriver: false,
-      }),
-      Animated.timing(scaleValue, {
-        toValue: 1,
-        duration: animationDuration * 0.2,
-        easing: Easing.bounce,
-        useNativeDriver: false,
-      }),
-    ]).start((finished) => {
-      if (finished && onAnimationComplete) {
-        onAnimationComplete();
-      }
-    });
-
-    // Opacity animation - fade in as it zooms towards camera
-    Animated.sequence([
-      Animated.timing(opacityValue, {
-        toValue: 0.3, // Start more visible (was 0)
-        duration: animationDuration * 0.1,
-        useNativeDriver: false,
-      }),
-      Animated.timing(opacityValue, {
-        toValue: 1, // Full opacity as it gets bigger
-        duration: animationDuration * 0.7,
-        useNativeDriver: false,
-      }),
-      Animated.timing(opacityValue, {
-        toValue: 1, // Stay visible longer
-        duration: animationDuration * 0.2,
-        useNativeDriver: false,
-      }),
-    ]).start();
+    Animated.loop(
+      Animated.parallel([
+        Animated.timing(rotationValue, {
+          toValue: 360,
+          duration: animationDuration,
+          easing: Easing.linear,
+          useNativeDriver: false,
+        }),
+        Animated.sequence([
+          Animated.parallel([
+            Animated.timing(scaleValue, {
+              toValue: 0.1,
+              duration: animationDuration * 0.4,
+              easing: Easing.inOut(Easing.ease),
+              useNativeDriver: false,
+            }),
+            Animated.timing(opacityValue, {
+              toValue: 0,
+              duration: animationDuration * 0.4,
+              easing: Easing.inOut(Easing.ease),
+              useNativeDriver: false,
+            }),
+          ]),
+          Animated.delay(animationDuration * 0.1),
+          Animated.parallel([
+            Animated.timing(scaleValue, {
+              toValue: 1,
+              duration: animationDuration * 0.5,
+              easing: Easing.out(Easing.elastic(1)),
+              useNativeDriver: false,
+            }),
+            Animated.timing(opacityValue, {
+              toValue: 1,
+              duration: animationDuration * 0.5,
+              easing: Easing.out(Easing.quad),
+              useNativeDriver: false,
+            }),
+          ]),
+        ]),
+      ])
+    ).start();
   };
-
-  // Calculate position - keep centered for zoom effect
-  const translateX = spiralValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 0], // Stay centered (was [100, 0])
-  });
-
-  const translateY = spiralValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 0], // Stay centered (was [-60, -10])
-  });
 
   const rotation = rotationValue.interpolate({
     inputRange: [0, 360],
     outputRange: ['0deg', '360deg'],
   });
 
+  const flashColor = flashingColor.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['#ff00cc', '#00ffff'],
+  });
+
   return (
     <View style={styles.container}>
-      {/* Simple Background */}
       <View style={styles.background} />
-      
-      {/* Simple Ripple Effect */}
       <SimpleRipple />
-      
-      {/* Toilet in center */}
+
       <View style={styles.toiletContainer}>
-        {toiletImage ? (
-          <Image source={toiletImage} style={styles.toiletImage} resizeMode="contain" />
-        ) : (
-          <Text style={styles.toiletEmoji}>🚽</Text>
-        )}
+        <Image
+          source={toiletImage || toiletPic}
+          style={styles.toiletImage}
+          resizeMode="contain"
+        />
       </View>
 
-      {/* Skibidi head that gets flushed */}
-      <Animated.View 
+      <Animated.View
         style={[
           styles.skibidiContainer,
           {
             transform: [
-              { translateX },
-              { translateY },
               { scale: scaleValue },
               { rotate: rotation },
             ],
             opacity: opacityValue,
-          }
+          },
         ]}
       >
-        {skibidiImage ? (
-          <Image source={skibidiImage} style={styles.skibidiImage} resizeMode="contain" />
-        ) : (
-          <Text style={styles.skibidiEmoji}>😈</Text>
-        )}
+        <Image
+          source={skibidiImage || skibidiFace}
+          style={styles.skibidiImage}
+          resizeMode="contain"
+        />
       </Animated.View>
 
-      {/* Title text */}
-      {/* <View style={styles.titleContainer}>
-        <Text style={styles.titleText}>SKIBIDI FLUSH</Text>
-        <SimpleLoadingText />
-      </View> */}
+      <Animated.Text
+        style={[
+          styles.flashingText,
+          {
+            color: flashColor,
+            transform: [
+              { translateX: bouncingX },
+              { translateY: bouncingY },
+            ],
+          },
+        ]}
+      >
+        ⚡ CONNECTING TO LIGHTNING… THIS TAKES A RIDICULOUS AMOUNT OF TIME (~2 MINS) 💥🧻🌀
+      </Animated.Text>
     </View>
   );
 };
 
-// Simple ripple component
 const SimpleRipple: React.FC = () => {
   const rippleScale = useRef(new Animated.Value(0)).current;
   const rippleOpacity = useRef(new Animated.Value(0.6)).current;
@@ -186,7 +227,6 @@ const SimpleRipple: React.FC = () => {
           useNativeDriver: false,
         }),
       ]).start(() => {
-        // Restart animation
         setTimeout(animateRipple, 500);
       });
     };
@@ -195,61 +235,32 @@ const SimpleRipple: React.FC = () => {
   }, []);
 
   return (
-    <Animated.View 
+    <Animated.View
       style={[
         styles.ripple,
         {
           transform: [{ scale: rippleScale }],
           opacity: rippleOpacity,
-        }
-      ]} 
+        },
+      ]}
     />
-  );
-};
-
-// Simple loading text
-const SimpleLoadingText: React.FC = () => {
-  const [dots, setDots] = React.useState('...');
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setDots(prev => {
-        switch(prev) {
-          case '.': return '..';
-          case '..': return '...';
-          case '...': return '.';
-          default: return '...';
-        }
-      });
-    }, 500);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  return (
-    <Text style={styles.subtitleText}>
-      Loading{dots}
-    </Text>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    top: 0, left: 0, right: 0, bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#000000', // Changed to black
-    zIndex: 1000, // Ensure it's on top
+    backgroundColor: '#000000',
+    zIndex: 1000,
   },
   background: {
     position: 'absolute',
     width: width * 2,
     height: height * 2,
-    backgroundColor: '#111111', // Dark black/gray gradient effect
+    backgroundColor: '#111111',
     borderRadius: width,
   },
   ripple: {
@@ -258,7 +269,7 @@ const styles = StyleSheet.create({
     height: 300,
     borderRadius: 150,
     borderWidth: 3,
-    borderColor: 'rgba(255, 255, 255, 0.8)', // More visible on black background
+    borderColor: 'rgba(255, 255, 255, 0.8)',
     backgroundColor: 'transparent',
   },
   toiletContainer: {
@@ -270,46 +281,29 @@ const styles = StyleSheet.create({
     width: 180,
     height: 220,
   },
-  toiletEmoji: {
-    fontSize: 180,
-    lineHeight: 220,
-  },
   skibidiContainer: {
     position: 'absolute',
     justifyContent: 'center',
     alignItems: 'center',
+    top: height / 2 - 60,
+    left: width / 2 - 60,
+    width: 120,
+    height: 120,
     zIndex: 3,
   },
   skibidiImage: {
-    width: 120, // Made bigger (was 70)
-    height: 120, // Made bigger (was 70)
+    width: 120,
+    height: 120,
   },
-  skibidiEmoji: {
-    fontSize: 120, // Made bigger (was 70)
-    lineHeight: 140, // Adjusted line height
-  },
-  titleContainer: {
+  flashingText: {
     position: 'absolute',
-    bottom: 120,
-    alignItems: 'center',
-  },
-  titleText: {
-    fontSize: 42,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    textAlign: 'center',
-    marginBottom: 10,
-    textShadowColor: '#000000',
-    textShadowOffset: { width: 2, height: 2 },
-    textShadowRadius: 4,
-  },
-  subtitleText: {
     fontSize: 16,
-    color: '#FFFFFF',
-    textAlign: 'center',
-    textShadowColor: '#000000',
+    fontWeight: 'bold',
+    textShadowColor: '#fff',
     textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
+    textShadowRadius: 4,
+    width: 280,
+    textAlign: 'center',
   },
 });
 

@@ -1,4 +1,3 @@
-// services/BreezSDKService.ts - Final version with correct Breez SDK Liquid API
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as liquidSdk from '@breeztech/react-native-breez-sdk-liquid';
 import {
@@ -16,12 +15,36 @@ import {
   ListPaymentsRequest,
   EventListener,
 } from '@breeztech/react-native-breez-sdk-liquid';
-import { BREEZ_API_KEY, MNEMONIC } from '@env';
+import bip39 from '@dawar2151/bip39-expo';
+import * as bitcoin from 'bitcoinjs-lib';
+import { getPublicKey } from '@noble/secp256k1';
+import { BREEZ_API_KEY } from '@env';
 
+// Simple key derivation without BIP32
+const derivePrivateKey = (seed: Buffer, index: number): Buffer => {
+  // Use a simple but secure derivation method
+  const indexBuffer = Buffer.alloc(4);
+  indexBuffer.writeUInt32BE(index, 0);
+  
+  const data = Buffer.concat([seed, indexBuffer, Buffer.from('SkibidiCash', 'utf8')]);
+  
+  // Use built-in crypto hash or fallback to manual implementation
+  if (typeof require !== 'undefined') {
+    try {
+      const crypto = require('crypto');
+      return crypto.createHash('sha256').update(data).digest();
+    } catch (e) {
+      // Fallback for environments without crypto module
+    }
+  }
+  
+  // Fallback: Use bitcoinjs-lib's crypto
+  return bitcoin.crypto.sha256(data);
+};
 
-// Generate a secure random mnemonic - you'll need to install bip39
-// npm install @react-native-async-storage/async-storage
-// For mnemonic generation, you can use: npm install bip39-rn or similar
+const derivePublicKey = (privateKey: Buffer): Buffer => {
+  return Buffer.from(getPublicKey(privateKey, true));
+};
 
 export interface BreezInitOptions {
   onEvent: EventListener;
@@ -54,11 +77,31 @@ export interface PaymentHistoryOptions {
   sortAscending?: boolean;
 }
 
+export interface GeneratedAddresses {
+  paymentsAddress: string;
+  ordinalsAddress: string;
+  publicKey: string;
+  fingerprint: string;
+}
+
 export class BreezSDKService {
   private static isConnected = false;
   private static eventListenerId: string | null = null;
   private static currentNetwork: LiquidNetwork | null = null;
   private static config: Config | null = null;
+
+  /**
+   * Check if mnemonic exists in storage
+   */
+  static async hasMnemonic(): Promise<boolean> {
+    try {
+      const storedMnemonic = await AsyncStorage.getItem('@breez_mnemonic');
+      return storedMnemonic !== null;
+    } catch (error) {
+      console.error('Failed to check mnemonic existence:', error);
+      return false;
+    }
+  }
 
   /**
    * Generate or retrieve stored mnemonic
@@ -73,10 +116,13 @@ export class BreezSDKService {
         return storedMnemonic;
       }
 
-      // Generate new mnemonic (you'll need to implement proper mnemonic generation)
-      // For now, using a test mnemonic - REPLACE THIS IN PRODUCTION
-      const newMnemonic = MNEMONIC || 
-        'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
+      // Generate new 12-word mnemonic
+      const newMnemonic = bip39.generateMnemonic(128); // 128 bits = 12 words
+      
+      // Validate the generated mnemonic
+      if (!bip39.validateMnemonic(newMnemonic)) {
+        throw new Error('Generated invalid mnemonic');
+      }
       
       // Store the mnemonic securely
       await AsyncStorage.setItem('@breez_mnemonic', newMnemonic);
@@ -103,6 +149,26 @@ export class BreezSDKService {
   }
 
   /**
+   * Import mnemonic from user input
+   */
+  static async importMnemonic(mnemonic: string): Promise<void> {
+    try {
+      // Validate the mnemonic
+      if (!bip39.validateMnemonic(mnemonic.trim())) {
+        throw new Error('Invalid mnemonic phrase');
+      }
+
+      // Store the mnemonic
+      await AsyncStorage.setItem('@breez_mnemonic', mnemonic.trim());
+      
+      console.log('📥 Imported mnemonic successfully');
+    } catch (error) {
+      console.error('Failed to import mnemonic:', error);
+      throw new Error('Failed to import mnemonic: ' + (error as Error).message);
+    }
+  }
+
+  /**
    * Clear stored mnemonic (for wallet reset)
    */
   static async clearMnemonic(): Promise<void> {
@@ -111,6 +177,62 @@ export class BreezSDKService {
       console.log('🗑️ Cleared stored mnemonic');
     } catch (error) {
       console.error('Failed to clear mnemonic:', error);
+    }
+  }
+
+  /**
+   * Generate addresses from mnemonic for a specific account (simplified version)
+   */
+  static async generateAddressesForAccount(accountIndex: number = 0, network: 'testnet' | 'mainnet' = 'testnet'): Promise<GeneratedAddresses> {
+    try {
+      const mnemonic = await this.getMnemonic();
+      const seed = bip39.mnemonicToSeedSync(mnemonic);
+      
+      // Get Bitcoin network
+      const btcNetwork = network === 'testnet' ? bitcoin.networks.testnet : bitcoin.networks.bitcoin;
+
+      // Simple derivation: seed + account index for different keys
+      const paymentsPrivKey = derivePrivateKey(seed, accountIndex * 2);
+      const ordinalsPrivKey = derivePrivateKey(seed, accountIndex * 2 + 1);
+      
+      const paymentsPublicKey = derivePublicKey(paymentsPrivKey);
+      const ordinalsPublicKey = derivePublicKey(ordinalsPrivKey);
+
+      // Generate addresses
+      const paymentsAddress = bitcoin.payments.p2wpkh({ 
+        pubkey: paymentsPublicKey, 
+        network: btcNetwork 
+      }).address!;
+      
+      // For ordinals, use P2TR (Taproot) - note: this is simplified
+      const ordinalsAddress = bitcoin.payments.p2tr({ 
+        pubkey: ordinalsPublicKey.slice(1), // Remove first byte for taproot
+        network: btcNetwork 
+      }).address!;
+
+      // Generate fingerprint from payment public key
+      const fingerprint = bitcoin.crypto.hash160(paymentsPublicKey).toString('hex').slice(0, 8);
+
+      return {
+        paymentsAddress,
+        ordinalsAddress,
+        publicKey: paymentsPublicKey.toString('hex'),
+        fingerprint,
+      };
+    } catch (error) {
+      console.error('Failed to generate addresses:', error);
+      throw new Error('Failed to generate addresses: ' + (error as Error).message);
+    }
+  }
+
+  /**
+   * Validate mnemonic phrase
+   */
+  static validateMnemonicPhrase(mnemonic: string): boolean {
+    try {
+      return bip39.validateMnemonic(mnemonic.trim());
+    } catch (error) {
+      return false;
     }
   }
 
@@ -508,6 +630,41 @@ export class BreezSDKService {
       hasEventListener: this.eventListenerId !== null,
       hasConfig: this.config !== null,
     };
+  }
+
+  /**
+   * Test crypto setup (for debugging)
+   */
+  static async testCryptoSetup(): Promise<boolean> {
+    try {
+      console.log('🧪 Testing crypto setup...');
+      
+      // Test mnemonic generation
+      const mnemonic = bip39.generateMnemonic(128); // 12 words
+      console.log('✅ Generated mnemonic:', mnemonic.split(' ').length, 'words');
+      
+      // Test validation
+      const isValid = bip39.validateMnemonic(mnemonic);
+      console.log('✅ Mnemonic validation:', isValid);
+      
+      if (!isValid) {
+        throw new Error('Generated mnemonic is invalid');
+      }
+      
+      // Test seed generation
+      const seed = bip39.mnemonicToSeedSync(mnemonic);
+      console.log('✅ Seed generated, length:', seed.length, 'bytes');
+      
+      // Test simple address derivation
+      const testAddresses = await this.generateAddressesForAccount(0, 'testnet');
+      console.log('✅ Test addresses generated:', testAddresses.paymentsAddress);
+      
+      console.log('🎉 All crypto tests passed!');
+      return true;
+    } catch (error) {
+      console.error('❌ Crypto setup test failed:', error);
+      return false;
+    }
   }
 
   /**

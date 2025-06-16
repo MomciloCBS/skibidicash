@@ -7,6 +7,7 @@ import {
   Easing,
   Dimensions,
 } from 'react-native';
+import { useMemo } from 'react';
 
 const { width } = Dimensions.get('window');
 
@@ -26,9 +27,9 @@ const AnimatedBalanceCard: React.FC<AnimatedBalanceCardProps> = ({
   const balanceScaleAnim = useRef(new Animated.Value(1)).current;
   const digitAnim = useRef(new Animated.Value(0)).current;
 
-  // Convert sats to dollars (assuming 1 BTC = $43,000 and 100M sats = 1 BTC)
+  // Convert sats to dollars ( 1 BTC = $107,000 and 100M sats = 1 BTC) TO-DO: fetch real BTC price
   const convertSatsToDollars = (sats: number): string => {
-    const btcPrice = 43000; // Current BTC price assumption
+    const btcPrice = 107000; // Current BTC price assumption
     const satsPerBTC = 100000000; // 100 million sats per BTC
     const dollars = (sats / satsPerBTC) * btcPrice;
     return dollars.toFixed(2);
@@ -46,7 +47,7 @@ const AnimatedBalanceCard: React.FC<AnimatedBalanceCardProps> = ({
 
   const dollarAmount = convertSatsToDollars(satoshiBalance);
   const [wholePart, decimalPart] = dollarAmount.split('.');
-  const hourlyChange = getHourlyChange();
+  const hourlyChange = useMemo(() => getHourlyChange(), []);
 
   useEffect(() => {
     // Subtle breathing animation for the balance

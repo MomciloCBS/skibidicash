@@ -1,4 +1,3 @@
-// services/PaymentService.ts - Final version with correct Breez SDK Liquid API
 import * as liquidSdk from '@breeztech/react-native-breez-sdk-liquid';
 import {
   PrepareSendRequest,
@@ -399,4 +398,15 @@ export class PaymentService {
       };
     }
   }
+
+  /**
+ * Get a stable ID for a payment (fallback if txId is missing)
+ */
+static getPaymentId(payment: Payment): string {
+  if (payment.txId) return payment.txId;
+  if (payment.details?.type === 'lightning' && payment.details.paymentHash) {
+    return payment.details.paymentHash;
+  }
+  return `${payment.timestamp}-${payment.amountSat}`;
+}
 }

@@ -1,4 +1,3 @@
-// types/content/ContentProps.ts - Type definitions for content components
 import { BitcoinAccount } from '../account/BitcoinAccount';
 import { WalletInfo } from '../../services/BreezSDKService';
 

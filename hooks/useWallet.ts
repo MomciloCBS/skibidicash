@@ -1,4 +1,3 @@
-// 🪙 hooks/useWallet.ts
 import { useEffect, useState } from 'react';
 import {
   BlockchainConfig,

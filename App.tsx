@@ -1,4 +1,3 @@
-// App.tsx - Final Production Version with Breez SDK Integration
 import { useState, useEffect } from 'react';
 import {
   View,
@@ -23,7 +22,34 @@ import { SwapContent } from './pages/SwapContent';
 import { TransactionsContent } from './pages/TransactionContent';
 import { GameContent } from './pages/GameContent';
 import { SkibidiButton } from './components/SkibidiButton';
+import { BreezSDKService } from './services/BreezSDKService';
 import Clipboard from '@react-native-clipboard/clipboard';
+import skibidiFace from './assets/skibidi-face.png';
+import toiletPic from './assets/toilet.png';
+
+
+const loadingMessages = [
+  "🚽 Loading Skibidi Data...",
+  "💩 Flushing Metadata...",
+  "🧻 Wiping Cache...",
+  "🧠 Injecting Brainrot...",
+  "📡 Contacting Toilet Satellite...",
+  "🎥 Buffering NPC Surveillance...",
+  "🪠 Unclogging Pipes...",
+  "👁 Rendering Toilet POV...",
+  "🔁 Syncing Skibidi Frames...",
+  "🪞 Reflecting Cringe...",
+  "🔓 Unlocking Sigma Archive...",
+  "🥴 Decoding Bathroom Protocol...",
+  "🌀 Initializing Flush Cycle...",
+  "👂 Calibrating Eardrum Bass...",
+  "💫 Stabilizing Meme Flux...",
+  "🧬 Generating NPC DNA...",
+  "🔊 Boosting Reverb...",
+  "🛞 Spinning Toilet Wheels...",
+  "🧯 Igniting Toilet Fire...",
+  "📟 Hacking the Urinal Mainframe...",
+];
 
 // App states
 type AppState = 'splash' | 'loading' | 'onboarding' | 'ready' | 'error';
@@ -44,9 +70,13 @@ function AppContent() {
     sendPayment: breezSendPayment, 
     createInvoice: breezCreateInvoice,
     isLoading: breezLoading,
-    error: breezError
+    error: breezError,
+    initializeAfterWalletCreation
   } = useBreez();
-  
+
+  const [message, setMessage] = useState(loadingMessages[0]);
+
+
   // Core app state
   const [appState, setAppState] = useState<AppState>('splash');
   const [appError, setAppError] = useState<AppError | null>(null);
@@ -55,12 +85,22 @@ function AppContent() {
   const [accounts, setAccounts] = useState<BitcoinAccount[]>([]);
   const [activeAccount, setActiveAccount] = useState<BitcoinAccount | null>(null);
   const [onboarded, setOnboarded] = useState(false);
+  const [hasMnemonic, setHasMnemonic] = useState(false);
   
   // UI state
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showAccountModal, setShowAccountModal] = useState(false);
   const [currentScreen, setCurrentScreen] = useState('home');
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const randomIndex = Math.floor(Math.random() * loadingMessages.length);
+      setMessage(loadingMessages[randomIndex]);
+    }, 30); 
+
+    return () => clearInterval(interval);
+  }, []);
 
   // Initialize app on mount
   useEffect(() => {
@@ -117,30 +157,45 @@ function AppContent() {
         
         console.log('🔄 Initializing SkibidiCash app...');
         
+        // Check if mnemonic exists
+        const mnemonicExists = await BreezSDKService.hasMnemonic();
+        setHasMnemonic(mnemonicExists);
+        console.log('🔑 Mnemonic exists:', mnemonicExists);
+
+        // Check onboarding status
         const isOnboarded = await AccountStorage.isOnboarded();
         setOnboarded(isOnboarded);
 
-        if (isOnboarded) {
+        // If we have a mnemonic and are onboarded, load existing data
+        if (mnemonicExists && isOnboarded) {
           await loadAccountData();
           
           // Check if we have an active account
           const activeAccountId = await AccountStorage.loadActiveAccount();
           if (activeAccountId) {
-            console.log('✅ Found existing account, proceeding to main app');
-            return true; // Has account
+            console.log('✅ Found existing wallet with accounts, proceeding to main app');
+            return true; // Has wallet and account
           } else {
-            console.log('⚠️ Onboarded but no active account, reset to onboarding');
-            setOnboarded(false);
-            return false;
+            console.log('⚠️ Has mnemonic but no active account, creating default account');
+            await createDefaultAccountFromMnemonic();
+            return true;
           }
+        } else if (mnemonicExists && !isOnboarded) {
+          // Edge case: mnemonic exists but not onboarded
+          console.log('⚠️ Mnemonic exists but not onboarded, creating default account');
+          await createDefaultAccountFromMnemonic();
+          await AccountStorage.setOnboarded();
+          setOnboarded(true);
+          return true;
         }
-        return false; // Not onboarded
+        
+        return false; // No mnemonic, need onboarding
       })();
       
       // Wait for both splash time and initialization
-      const [, hasAccount] = await Promise.all([splashPromise, initPromise]);
+      const [, hasWallet] = await Promise.all([splashPromise, initPromise]);
       
-      if (onboarded && hasAccount) {
+      if (hasWallet) {
         setAppState('ready');
         console.log('🎉 App initialized successfully');
       } else {
@@ -156,6 +211,51 @@ function AppContent() {
         retryAction: initializeApp
       });
       setAppState('error');
+    }
+  };
+
+  const createDefaultAccountFromMnemonic = async () => {
+    try {
+      console.log('🆕 Creating default account from existing mnemonic');
+      
+      // Generate addresses from mnemonic
+      const addresses = await BreezSDKService.generateAddressesForAccount(0, __DEV__ ? 'testnet' : 'mainnet');
+      
+      const defaultAccount: BitcoinAccount = {
+        id: Date.now().toString(),
+        name: 'My Skibidi Wallet',
+        emoji: '🚽',
+        balance: 0,
+        ordinalsBalance: 0,
+        ordinalsAddress: addresses.ordinalsAddress,
+        paymentsAddress: addresses.paymentsAddress,
+        publicKey: addresses.publicKey,
+        fingerprint: addresses.fingerprint,
+        addressIndex: 0,
+        createdAt: Date.now(),
+      };
+
+      const updatedAccounts = [defaultAccount];
+      await AccountStorage.saveAccounts(updatedAccounts);
+      setAccounts(updatedAccounts);
+
+      // Set as active account
+      setActiveAccount(defaultAccount);
+      await AccountStorage.saveActiveAccount(defaultAccount.id);
+      
+      console.log('✅ Default account created from mnemonic');
+      if (!breezConnected) {
+        try {
+          console.log('🔄 Initializing Breez SDK for existing mnemonic...');
+          await initializeAfterWalletCreation();
+        } catch (error) {
+          console.error('⚠️ Failed to initialize Breez SDK:', error);
+          // Don't block the user, just log the error
+        }
+      }
+    } catch (error) {
+      console.error('Failed to create default account from mnemonic:', error);
+      throw error;
     }
   };
 
@@ -184,23 +284,25 @@ function AppContent() {
     setIsCreatingAccount(true);
     
     try {
-      const accountId = Date.now().toString();
+      const accountIndex = accounts.length; // Use number of existing accounts as index
       
-      console.log('🆕 Creating new account:', name, emoji);
+      console.log('🆕 Creating new account:', name, emoji, 'at index:', accountIndex);
       
-      // Create account with Breez SDK integration
+      // Generate addresses from mnemonic for this account
+      const addresses = await BreezSDKService.generateAddressesForAccount(accountIndex, __DEV__ ? 'testnet' : 'mainnet');
+      
+      // Create account with real generated addresses
       const newAccount: BitcoinAccount = {
-        id: accountId,
+        id: Date.now().toString(),
         name,
         emoji,
         balance: 0,
         ordinalsBalance: 0,
-        // With Breez SDK, addresses are managed automatically
-        ordinalsAddress: 'Managed by Breez SDK',
-        paymentsAddress: 'Managed by Breez SDK',
-        publicKey: 'Managed by Breez SDK',
-        fingerprint: accountId,
-        addressIndex: 0,
+        ordinalsAddress: addresses.ordinalsAddress,
+        paymentsAddress: addresses.paymentsAddress,
+        publicKey: addresses.publicKey,
+        fingerprint: addresses.fingerprint,
+        addressIndex: accountIndex,
         createdAt: Date.now(),
       };
 
@@ -211,16 +313,28 @@ function AppContent() {
       // Set active account and onboarding status
       setActiveAccount(newAccount);
       await AccountStorage.saveActiveAccount(newAccount.id);
-      await AccountStorage.setOnboarded();
-      setOnboarded(true);
+      
+      if (!onboarded) {
+        await AccountStorage.setOnboarded();
+        setOnboarded(true);
+      }
 
       // Close modal and go to ready state
       setShowCreateModal(false);
       setAppState('ready');
 
+      if (!hasMnemonic) {
+        try {
+          console.log('🔄 Initializing Breez SDK for new wallet...');
+          await initializeAfterWalletCreation();
+        } catch (error) {
+          console.error('⚠️ Failed to initialize Breez SDK after wallet creation:', error);
+        }
+      }
+
       Vibration.vibrate([50, 30, 50]);
       
-      // Show success message with Lightning status
+      // Show success message with Lightning status and real address info
       const lightningStatus = breezConnected 
         ? '⚡ Lightning is connected!' 
         : breezLoading 
@@ -229,7 +343,7 @@ function AppContent() {
       
       Alert.alert(
         '✅ Skibidi Success!', 
-        `Your new Lightning wallet "${name}" is ready!\n\n${lightningStatus}`,
+        `Your new Lightning wallet "${name}" is ready!\n\n${lightningStatus}\n\n🏠 Payment Address: ${addresses.paymentsAddress.slice(0, 20)}...\n🎨 Ordinals Address: ${addresses.ordinalsAddress.slice(0, 20)}...`,
         [
           {
             text: __DEV__ ? 'Get Test Coins' : 'Start Trading',
@@ -371,22 +485,63 @@ function AppContent() {
   };
 
   const handleExportPrivateKey = async (account: BitcoinAccount) => {
-    Alert.alert(
-      '🔐 Self-Custodial Security',
-      'Your Skibidi Cash wallet is secured by Breez SDK on the Liquid Network. Your funds are completely self-custodial - you have full control and the keys are secured locally on your device.',
-      [
-        {
-          text: 'Learn More',
-          onPress: () => {
-            Alert.alert(
-              '⚡ Lightning + Liquid Security',
-              'Your Bitcoin is stored on the Liquid sidechain with Lightning Network capabilities. This gives you instant payments while maintaining full custody of your funds. Breez SDK handles the technical complexity while keeping your skibidi secure!'
-            );
-          }
-        },
-        { text: 'Epic!' }
-      ]
-    );
+    try {
+      const mnemonic = await BreezSDKService.getStoredMnemonic();
+      
+      if (!mnemonic) {
+        Alert.alert('❌ Error', 'Could not retrieve wallet mnemonic');
+        return;
+      }
+
+      Alert.alert(
+        '🔐 Export Wallet Seed',
+        'Your wallet seed phrase is your master key. Keep it safe and never share it with anyone!',
+        [
+          {
+            text: 'Show Seed Phrase',
+            onPress: () => {
+              Alert.alert(
+                '🔑 Wallet Seed Phrase',
+                `${mnemonic}\n\n⚠️ Write this down and store it safely offline. This is the only way to recover your wallet if you lose your device.`,
+                [
+                  {
+                    text: 'Copy to Clipboard',
+                    onPress: () => {
+                      Clipboard.setString(mnemonic);
+                      Alert.alert('📋 Copied!', 'Seed phrase copied to clipboard. Make sure to store it safely!');
+                    }
+                  },
+                  { text: 'I Saved It', style: 'default' }
+                ]
+              );
+            }
+          },
+          {
+            text: 'Show Address Info',
+            onPress: () => {
+              Alert.alert(
+                '🏠 Address Information',
+                `Payment Address:\n${account.paymentsAddress}\n\nOrdinals Address:\n${account.ordinalsAddress}\n\nAccount Index: ${account.addressIndex}\nFingerprint: ${account.fingerprint}`,
+                [
+                  {
+                    text: 'Copy Payment Address',
+                    onPress: () => {
+                      Clipboard.setString(account.paymentsAddress);
+                      Alert.alert('📋 Copied!', 'Payment address copied to clipboard');
+                    }
+                  },
+                  { text: 'Done' }
+                ]
+              );
+            }
+          },
+          { text: 'Cancel', style: 'cancel' }
+        ]
+      );
+    } catch (error: any) {
+      console.error('Failed to export mnemonic:', error);
+      Alert.alert('❌ Error', 'Failed to export wallet information');
+    }
   };
 
   const renderContent = () => {
@@ -435,18 +590,14 @@ function AppContent() {
   if (breezLoading && appState === 'ready') {
     return (
       <SafeAreaView style={styles.safeArea}>
-        {/* <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>⚡ Connecting to Lightning...</Text>
-          <Text style={styles.subtitleText}>Powering up your skibidi experience</Text>
-        </View> */}
-        <SkibidiFlushSplash />
+        <SkibidiFlushSplash toiletImage={toiletPic} skibidiImage={skibidiFace}/>
       </SafeAreaView>
     );
   }
 
   // Splash screen
   if (appState === 'splash') {
-    return <SkibidiFlushSplash />;
+    return <SkibidiFlushSplash toiletImage={toiletPic} skibidiImage={skibidiFace} />;
   }
 
   // Error state
@@ -469,7 +620,7 @@ function AppContent() {
   }
 
   // Onboarding screen
-  if (!onboarded || appState === 'onboarding') {
+  if (!hasMnemonic || appState === 'onboarding') {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.loadingContainer}>
@@ -497,29 +648,32 @@ function AppContent() {
   if (appState === 'loading') {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>🚽 Loading Skibidi Data...</Text>
-        </View>
-      </SafeAreaView>
+      <View style={styles.loadingContainer}>
+        <Text style={styles.loadingText}>{message}</Text>
+      </View>
+    </SafeAreaView>
     );
   }
 
   // No active account fallback
-  if (!activeAccount && onboarded) {
+  if (!activeAccount && hasMnemonic) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.loadingContainer}>
           <Text style={styles.loadingText}>🔄 Account Recovery</Text>
           <Text style={styles.subtitleText}>Setting up your wallet...</Text>
           <SkibidiButton
-            title="Create New Wallet"
+            title="Create New Account"
             variant="primary"
-            onPress={() => {
-              setOnboarded(false);
-              setAppState('onboarding');
-            }}
+            onPress={() => setShowCreateModal(true)}
           />
         </View>
+        <CreateAccountModal
+          visible={showCreateModal}
+          onClose={() => setShowCreateModal(false)}
+          onCreateAccount={handleCreateAccount}
+          isCreating={isCreatingAccount}
+        />
       </SafeAreaView>
     );
   }

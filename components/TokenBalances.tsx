@@ -1,4 +1,3 @@
-// TokenBalances.tsx - Token Management for Skibidi Cash with Lightning Integration
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,

@@ -1,4 +1,3 @@
-// pages/HomeContent.tsx - Updated with Breez SDK Integration
 import { ScrollView, View, Text, Alert } from "react-native";
 import { useRef, useEffect, useState } from "react";
 import { Animated, Easing } from "react-native";

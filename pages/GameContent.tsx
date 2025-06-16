@@ -1,4 +1,3 @@
-// pages/GameContent.tsx - Updated with Props Interface
 import { ScrollView, View, Text } from "react-native";
 import { styles } from "../styles/AppStyles";
 import { SkibidiGameContent } from "../components/GameContent";
