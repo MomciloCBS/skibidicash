@@ -5,6 +5,7 @@ export interface SkibidiButtonProps {
     variant?: 'primary' | 'secondary' | 'chaos' | 'sigma' | 'small';
     style?: any;
     icon?: string;
+    disabled?: boolean;
 }
 
   

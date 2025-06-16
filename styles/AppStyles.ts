@@ -69,12 +69,12 @@ export const styles = StyleSheet.create({
     fontSize: 18,
     marginRight: 8,
   },
-  accountName: {
-    fontSize: 16,
-    color: SkibidiColors.textPrimary,
-    fontWeight: '700',
-    flex: 1,
-  },
+  // accountName: {
+  //   fontSize: 16,
+  //   color: SkibidiColors.textPrimary,
+  //   fontWeight: '700',
+  //   flex: 1,
+  // },
   accountDropdownIcon: {
     fontSize: 12,
     color: SkibidiColors.textMuted,
@@ -453,6 +453,12 @@ export const styles = StyleSheet.create({
     marginBottom: 40,
     fontWeight: '600',
   },
+  subtitleText: {
+    fontSize: 14,
+    color: SkibidiColors.textSecondary,
+    textAlign: 'center',
+    fontWeight: '600',
+  },
   onboardingDescription: {
     marginBottom: 60,
   },
@@ -562,5 +568,262 @@ export const styles = StyleSheet.create({
   },
   exportButton: {
     width: '100%',
+  },
+  accountNameContainer: {
+    flex: 1,
+    flexDirection: 'column',
+  },
+  lightningStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  lightningIcon: {
+    fontSize: 12,
+    marginRight: 4,
+    fontWeight: 'bold',
+  },
+  lightningStatusText: {
+    fontSize: 10,
+    color: '#888888',
+    fontWeight: '500',
+  },
+  lightningBadge: {
+    fontSize: 10,
+    color: '#FFD700',
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  accountName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 0, // Reduced to make room for lightning status
+  },
+  connectionStatus: {
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    marginHorizontal: 20,
+    marginTop: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  connectionStatusText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  connectionSubtext: {
+    fontSize: 12,
+    color: '#888888',
+    marginTop: 2,
+  },
+  quickStats: {
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    marginHorizontal: 20,
+    marginBottom: 20,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 215, 0, 0.3)',
+  },
+  quickStatsTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFD700',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  statItem: {
+    alignItems: 'center',
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#888888',
+    marginBottom: 4,
+  },
+  statValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  
+  // GameContent Styles
+  gameStatusBar: {
+    backgroundColor: 'rgba(255, 215, 0, 0.1)',
+    marginHorizontal: 20,
+    marginTop: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 215, 0, 0.3)',
+  },
+  gameStatusText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFD700',
+    textAlign: 'center',
+  },
+  gameStatusSubtext: {
+    fontSize: 12,
+    color: '#888888',
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  
+  // TransactionsContent Styles
+  transactionHeader: {
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    marginHorizontal: 20,
+    marginTop: 10,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    borderBottomWidth: 2,
+    borderBottomColor: '#FFD700',
+  },
+  transactionHeaderTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    textAlign: 'center',
+  },
+  transactionHeaderSubtitle: {
+    fontSize: 14,
+    color: '#888888',
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  balanceSummary: {
+    backgroundColor: 'rgba(0, 255, 136, 0.1)',
+    marginHorizontal: 20,
+    marginTop: 10,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 255, 136, 0.3)',
+    alignItems: 'center',
+  },
+  balanceSummaryTitle: {
+    fontSize: 14,
+    color: '#888888',
+    marginBottom: 4,
+  },
+  balanceSummaryAmount: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#00FF88',
+  },
+  pendingContainer: {
+    flexDirection: 'row',
+    gap: 16,
+    marginTop: 8,
+  },
+  pendingReceive: {
+    fontSize: 12,
+    color: '#00FF88',
+    fontWeight: '600',
+  },
+  pendingSend: {
+    fontSize: 12,
+    color: '#FF6B6B',
+    fontWeight: '600',
+  },
+  // loadingContainer: {
+  //   padding: 40,
+  //   alignItems: 'center',
+  // },
+  // loadingText: {
+  //   fontSize: 16,
+  //   color: '#888888',
+  //   fontWeight: '600',
+  // },
+  transactionsList: {
+    marginHorizontal: 20,
+    marginTop: 10,
+  },
+  transactionItem: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    marginBottom: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  transactionIcon: {
+    width: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  transactionTypeIcon: {
+    fontSize: 20,
+    marginBottom: 2,
+  },
+  transactionStatusIcon: {
+    fontSize: 12,
+  },
+  transactionDetails: {
+    flex: 1,
+    marginLeft: 12,
+    justifyContent: 'center',
+  },
+  transactionDescription: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  transactionDate: {
+    fontSize: 12,
+    color: '#888888',
+    marginBottom: 2,
+  },
+  transactionDestination: {
+    fontSize: 11,
+    color: '#666666',
+  },
+  transactionAmount: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    minWidth: 80,
+  },
+  transactionAmountText: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  transactionFees: {
+    fontSize: 11,
+    color: '#888888',
+    marginBottom: 2,
+  },
+  transactionStatus: {
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  retryButton: {
+    backgroundColor: 'rgba(255, 215, 0, 0.2)',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FFD700',
+    marginTop: 16,
+  },
+  retryButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFD700',
+    textAlign: 'center',
   },
 }); 

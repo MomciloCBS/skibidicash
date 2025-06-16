@@ -21,6 +21,14 @@ interface FlashingButtonProps {
   flashSpeed?: number; // milliseconds
   alternateColor?: string; // for swap button
   iconAnimation?: 'rotate' | 'bounce' | 'shake' | 'move'; // Animation type
+  disabled?: boolean;
+}
+
+interface FlashingActionButtonsProps {
+  onSend?: () => void;
+  onReceive?: () => void;
+  onGetTestCoins?: () => void;
+  isLightningConnected?: boolean;
 }
 
 const FlashingButton: React.FC<FlashingButtonProps> = ({
@@ -32,6 +40,7 @@ const FlashingButton: React.FC<FlashingButtonProps> = ({
   flashSpeed = 1000,
   alternateColor,
   iconAnimation,
+  disabled = false,
 }) => {
   const flashAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -44,6 +53,8 @@ const FlashingButton: React.FC<FlashingButtonProps> = ({
   const iconMoveY = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    if (disabled) return;
+
     const startFlashing = () => {
       if (alternateColor) {
         // Swap button: alternate between two colors rapidly
@@ -211,9 +222,11 @@ const FlashingButton: React.FC<FlashingButtonProps> = ({
     if (iconAnimation) {
       startIconAnimation();
     }
-  }, []);
+  }, [disabled]);
 
   const handlePress = () => {
+    if (disabled) return;
+    
     Vibration.vibrate([50, 30, 50]);
     
     // Button press animation
@@ -236,13 +249,15 @@ const FlashingButton: React.FC<FlashingButtonProps> = ({
   // Calculate border color based on animation
   const borderColor = flashAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: alternateColor 
-      ? ['rgba(255, 255, 255, 0.3)', flashColor] // Swap: white to green, then will cycle to red
-      : ['rgba(255, 255, 255, 0.3)', flashColor], // Others: white to their color
+    outputRange: disabled 
+      ? ['rgba(128, 128, 128, 0.3)', 'rgba(128, 128, 128, 0.3)']
+      : alternateColor 
+        ? ['rgba(255, 255, 255, 0.3)', flashColor] // Swap: white to green, then will cycle to red
+        : ['rgba(255, 255, 255, 0.3)', flashColor], // Others: white to their color
   });
 
   // For swap button, alternate between green and red
-  const swapBorderColor = alternateColor ? flashAnim.interpolate({
+  const swapBorderColor = alternateColor && !disabled ? flashAnim.interpolate({
     inputRange: [0, 0.5, 1],
     outputRange: ['rgba(255, 255, 255, 0.3)', flashColor, alternateColor],
   }) : borderColor;
@@ -284,65 +299,147 @@ const FlashingButton: React.FC<FlashingButtonProps> = ({
         { 
           transform: [{ scale: scaleAnim }],
           borderColor: alternateColor ? swapBorderColor : borderColor,
+          opacity: disabled ? 0.5 : 1,
         }
       ]}
     >
-      <TouchableOpacity onPress={handlePress} style={styles.buttonInner}>
+      <TouchableOpacity 
+        onPress={handlePress} 
+        style={styles.buttonInner}
+        disabled={disabled}
+        activeOpacity={disabled ? 1 : 0.8}
+      >
         <Animated.Text 
           style={[
             styles.buttonIcon,
-            { transform: getIconTransform() }
+            { 
+              transform: disabled ? [] : getIconTransform(),
+              color: disabled ? '#666666' : undefined,
+            }
           ]}
         >
           {icon}
         </Animated.Text>
-        <Text style={styles.buttonTitle}>{title}</Text>
-        {subtitle && <Text style={styles.buttonSubtitle}>{subtitle}</Text>}
+        <Text style={[
+          styles.buttonTitle,
+          { color: disabled ? '#666666' : '#FFFFFF' }
+        ]}>
+          {title}
+        </Text>
+        {subtitle && (
+          <Text style={[
+            styles.buttonSubtitle,
+            { color: disabled ? '#444444' : 'rgba(255, 255, 255, 0.8)' }
+          ]}>
+            {subtitle}
+          </Text>
+        )}
       </TouchableOpacity>
     </Animated.View>
   );
 };
 
 // Main action buttons component
-const FlashingActionButtons: React.FC = () => {
+const FlashingActionButtons: React.FC<FlashingActionButtonsProps> = ({
+  onSend,
+  onReceive,
+  onGetTestCoins,
+  isLightningConnected = false,
+}) => {
+  const handleCashPress = () => {
+    if (onGetTestCoins) {
+      onGetTestCoins();
+    } else {
+      Alert.alert('💰 Cash', 'Get test coins functionality not available');
+    }
+  };
+
+  const handleReceivePress = () => {
+    if (onReceive) {
+      onReceive();
+    } else {
+      Alert.alert('⬇️ Receive', 'Receive functionality coming soon!');
+    }
+  };
+
+  const handleSendPress = () => {
+    if (onSend) {
+      onSend();
+    } else {
+      Alert.alert('🚀 Send', 'Send functionality coming soon!');
+    }
+  };
+
+  const handleSwapPress = () => {
+    if (!isLightningConnected) {
+      Alert.alert(
+        '⚡ Lightning Required',
+        'Connect to Lightning Network to enable swaps'
+      );
+    } else {
+      Alert.alert('🔄 Swap', 'Lightning swaps coming soon!');
+    }
+  };
+
   return (
     <View style={styles.actionButtonsContainer}>
+      {/* Lightning Status Bar */}
+      <View style={[
+        styles.lightningStatus,
+        { backgroundColor: isLightningConnected ? 'rgba(0, 255, 136, 0.1)' : 'rgba(255, 107, 107, 0.1)' }
+      ]}>
+        <Text style={[
+          styles.lightningStatusText,
+          { color: isLightningConnected ? '#00FF88' : '#FF6B6B' }
+        ]}>
+          {isLightningConnected ? '⚡ Lightning Ready' : '❌ Lightning Offline'}
+        </Text>
+      </View>
+
       <View style={styles.actionButtonsRow}>
         <FlashingButton
           title="CASH"
+          subtitle={__DEV__ ? 'Test Coins' : undefined}
           icon="💰"
-          onPress={() => Alert.alert('💰 Cash', 'Cash functionality coming soon!')}
+          onPress={handleCashPress}
           flashColor="rgba(255, 215, 0, 0.8)" // Golden
           flashSpeed={1000}
           iconAnimation="shake" // Shaking cash bag
+          disabled={false} // Always available for test coins
         />
         
         <FlashingButton
           title="RECEIVE"
-          icon="⬇️" // Changed to down arrow
-          onPress={() => Alert.alert('⬇️ Receive', 'Receive functionality coming soon!')}
+          subtitle="Lightning"
+          icon="⬇️" // Down arrow
+          onPress={handleReceivePress}
           flashColor="rgba(0, 255, 0, 0.8)" // Green
           flashSpeed={1000}
           iconAnimation="bounce" // Bouncing arrow
+          disabled={!isLightningConnected}
         />
         
         <FlashingButton
           title="SEND"
+          subtitle="Lightning"
           icon="🚀"
-          onPress={() => Alert.alert('🚀 Send', 'Send functionality coming soon!')}
+          onPress={handleSendPress}
           flashColor="rgba(255, 0, 0, 0.8)" // Red
           flashSpeed={1000}
           iconAnimation="move" // Moving rocket
+          disabled={!isLightningConnected}
         />
         
         <FlashingButton
           title="SWAP"
+          subtitle="Coming Soon"
           icon="🔄"
-          onPress={() => Alert.alert('🔄 Swap', 'Swap functionality coming soon!')}
+          onPress={handleSwapPress}
           flashColor="rgba(0, 255, 0, 0.8)" // Green
           alternateColor="rgba(255, 0, 0, 0.8)" // Red
           flashSpeed={300} // Much faster
           iconAnimation="rotate" // Rotating swap icon
+          disabled={!isLightningConnected}
         />
       </View>
     </View>
@@ -354,6 +451,19 @@ const styles = StyleSheet.create({
     marginVertical: 20,
     paddingHorizontal: 20,
     zIndex: 1001,
+  },
+  lightningStatus: {
+    marginBottom: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  lightningStatusText: {
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   actionButtonsRow: {
     flexDirection: 'row',
@@ -397,7 +507,7 @@ const styles = StyleSheet.create({
     textShadowRadius: 2,
   },
   buttonSubtitle: {
-    fontSize: 10,
+    fontSize: 9,
     color: 'rgba(255, 255, 255, 0.8)',
     textAlign: 'center',
     marginTop: 1,

@@ -1,4 +1,4 @@
-// TokenBalances.tsx - Token Management for Skibidi Cash
+// TokenBalances.tsx - Token Management for Skibidi Cash with Lightning Integration
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -14,6 +14,8 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SkibidiColors } from '../theme/SkibidiTheme';
+import { WalletInfo } from '../services/BreezSDKService';
+import { PaymentService } from '../services/PaymentService';
 
 const { width } = Dimensions.get('window');
 
@@ -22,7 +24,7 @@ interface Token {
   id: string;
   symbol: string;
   name: string;
-  type: 'BTC' | 'BRC-20' | 'RUNES' | 'ORDINALS';
+  type: 'BTC' | 'BRC-20' | 'RUNES' | 'ORDINALS' | 'LIGHTNING';
   balance: string; // String to handle large numbers and decimals
   decimals: number;
   usdValue?: number;
@@ -30,6 +32,7 @@ interface Token {
   emoji: string;
   color: string;
   isNative?: boolean;
+  isLightning?: boolean;
 }
 
 // 💾 Token Storage Manager
@@ -169,6 +172,23 @@ class TokenStorage {
       },
     ];
   }
+
+  static createLightningToken(walletInfo: WalletInfo): Token {
+    return {
+      id: 'lightning-btc',
+      symbol: 'L-BTC',
+      name: 'Lightning Bitcoin',
+      type: 'LIGHTNING',
+      balance: (walletInfo.balanceSat / 100000000).toFixed(8),
+      decimals: 8,
+      usdValue: 43000, // Assume same as BTC
+      change24h: 2.5,
+      emoji: '⚡',
+      color: '#FFD700',
+      isLightning: true,
+      isNative: true,
+    };
+  }
 }
 
 // 💰 Individual Token Item Component
@@ -177,15 +197,23 @@ interface TokenItemProps {
   onPress: () => void;
   onLongPress: () => void;
   isHidden?: boolean;
+  isLightningConnected?: boolean;
 }
 
-function TokenItem({ token, onPress, onLongPress, isHidden = false }: TokenItemProps) {
+function TokenItem({ 
+  token, 
+  onPress, 
+  onLongPress, 
+  isHidden = false,
+  isLightningConnected = false 
+}: TokenItemProps) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const glowAnim = useRef(new Animated.Value(0)).current;
+  const lightningAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    if (token.isNative) {
-      // Subtle glow animation for BTC
+    if (token.isNative || token.isLightning) {
+      // Subtle glow animation for BTC and Lightning
       Animated.loop(
         Animated.sequence([
           Animated.timing(glowAnim, {
@@ -203,7 +231,27 @@ function TokenItem({ token, onPress, onLongPress, isHidden = false }: TokenItemP
         ])
       ).start();
     }
-  }, []);
+
+    // Lightning animation for Lightning tokens
+    if (token.isLightning && isLightningConnected) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(lightningAnim, {
+            toValue: 1,
+            duration: 1000,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: false,
+          }),
+          Animated.timing(lightningAnim, {
+            toValue: 0.5,
+            duration: 1000,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: false,
+          }),
+        ])
+      ).start();
+    }
+  }, [isLightningConnected]);
 
   const handlePress = () => {
     Vibration.vibrate(30);
@@ -242,6 +290,11 @@ function TokenItem({ token, onPress, onLongPress, isHidden = false }: TokenItemP
     outputRange: [0.1, 0.3],
   });
 
+  const lightningOpacity = lightningAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.3, 1],
+  });
+
   return (
     <Animated.View style={[
       styles.tokenItem,
@@ -251,7 +304,7 @@ function TokenItem({ token, onPress, onLongPress, isHidden = false }: TokenItemP
         opacity: isHidden ? 0.5 : 1,
       }
     ]}>
-      {token.isNative && (
+      {(token.isNative || token.isLightning) && (
         <Animated.View 
           style={[
             styles.tokenGlow,
@@ -261,6 +314,20 @@ function TokenItem({ token, onPress, onLongPress, isHidden = false }: TokenItemP
             }
           ]} 
         />
+      )}
+
+      {/* Lightning Status Indicator */}
+      {token.isLightning && (
+        <Animated.View 
+          style={[
+            styles.lightningIndicator,
+            { opacity: isLightningConnected ? lightningOpacity : 0.3 }
+          ]}
+        >
+          <Text style={styles.lightningBadgeText}>
+            {isLightningConnected ? '⚡ LIVE' : '❌ OFFLINE'}
+          </Text>
+        </Animated.View>
       )}
       
       <TouchableOpacity
@@ -282,12 +349,22 @@ function TokenItem({ token, onPress, onLongPress, isHidden = false }: TokenItemP
                   {token.type}
                 </Text>
               </View>
+              {token.isLightning && (
+                <View style={styles.lightningBadge}>
+                  <Text style={styles.lightningBadgeText}>⚡</Text>
+                </View>
+              )}
             </View>
             <Text style={styles.tokenName}>{token.name}</Text>
           </View>
           
           <View style={styles.tokenValues}>
-            <Text style={styles.tokenBalance}>{token.balance}</Text>
+            <Text style={styles.tokenBalance}>
+              {token.isLightning 
+                ? PaymentService.formatAmount(Math.floor(parseFloat(token.balance) * 100000000))
+                : token.balance
+              }
+            </Text>
             {token.usdValue && (
               <Text style={styles.tokenUsdValue}>
                 ${calculateUsdTotal().toLocaleString(undefined, { maximumFractionDigits: 2 })}
@@ -317,9 +394,14 @@ function TokenItem({ token, onPress, onLongPress, isHidden = false }: TokenItemP
 interface PortfolioSummaryProps {
   tokens: Token[];
   hiddenTokens: string[];
+  lightningBalance?: number;
 }
 
-function PortfolioSummary({ tokens, hiddenTokens }: PortfolioSummaryProps) {
+function PortfolioSummary({ 
+  tokens, 
+  hiddenTokens, 
+  lightningBalance = 0 
+}: PortfolioSummaryProps) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const visibleTokens = tokens.filter(token => !hiddenTokens.includes(token.id));
 
@@ -343,12 +425,19 @@ function PortfolioSummary({ tokens, hiddenTokens }: PortfolioSummaryProps) {
   }, []);
 
   const calculateTotalValue = () => {
-    return visibleTokens.reduce((total, token) => {
-      if (token.usdValue) {
+    let total = visibleTokens.reduce((total, token) => {
+      if (token.usdValue && !token.isLightning) {
         return total + (parseFloat(token.balance) * token.usdValue);
       }
       return total;
     }, 0);
+
+    // Add Lightning balance value
+    if (lightningBalance > 0) {
+      total += (lightningBalance / 100000000) * 43000; // Assume $43k BTC price
+    }
+
+    return total;
   };
 
   const calculateTotalChange = () => {
@@ -356,7 +445,7 @@ function PortfolioSummary({ tokens, hiddenTokens }: PortfolioSummaryProps) {
     if (totalValue === 0) return 0;
     
     const weightedChange = visibleTokens.reduce((total, token) => {
-      if (token.usdValue && token.change24h !== undefined) {
+      if (token.usdValue && token.change24h !== undefined && !token.isLightning) {
         const tokenValue = parseFloat(token.balance) * token.usdValue;
         const weight = tokenValue / totalValue;
         return total + (token.change24h * weight);
@@ -395,6 +484,12 @@ function PortfolioSummary({ tokens, hiddenTokens }: PortfolioSummaryProps) {
           <Text style={styles.portfolioStatValue}>{visibleTokens.length}</Text>
         </View>
         <View style={styles.portfolioStat}>
+          <Text style={styles.portfolioStatLabel}>⚡ Lightning</Text>
+          <Text style={styles.portfolioStatValue}>
+            {lightningBalance > 0 ? PaymentService.formatAmount(lightningBalance) : '0 sats'}
+          </Text>
+        </View>
+        <View style={styles.portfolioStat}>
           <Text style={styles.portfolioStatLabel}>👁️ Hidden</Text>
           <Text style={styles.portfolioStatValue}>{hiddenTokens.length}</Text>
         </View>
@@ -413,6 +508,7 @@ interface TokenFilterProps {
 function TokenFilter({ activeFilter, onFilterChange, tokenCounts }: TokenFilterProps) {
   const filters = [
     { id: 'ALL', label: 'All', emoji: '🔥', count: tokenCounts.ALL || 0 },
+    { id: 'LIGHTNING', label: 'Lightning', emoji: '⚡', count: tokenCounts.LIGHTNING || 0 },
     { id: 'BTC', label: 'Bitcoin', emoji: '₿', count: tokenCounts.BTC || 0 },
     { id: 'BRC-20', label: 'BRC-20', emoji: '🟠', count: tokenCounts['BRC-20'] || 0 },
     { id: 'RUNES', label: 'Runes', emoji: '🪄', count: tokenCounts.RUNES || 0 },
@@ -460,9 +556,16 @@ function TokenFilter({ activeFilter, onFilterChange, tokenCounts }: TokenFilterP
 interface TokenBalancesProps {
   accountId: string;
   ordinalsBalance: number;
+  walletInfo?: WalletInfo | null;
+  breezConnected?: boolean;
 }
 
-export function TokenBalances({ accountId, ordinalsBalance }: TokenBalancesProps) {
+export function TokenBalances({ 
+  accountId, 
+  ordinalsBalance, 
+  walletInfo,
+  breezConnected = false 
+}: TokenBalancesProps) {
   const [tokens, setTokens] = useState<Token[]>([]);
   const [hiddenTokens, setHiddenTokens] = useState<string[]>([]);
   const [activeFilter, setActiveFilter] = useState('ALL');
@@ -471,6 +574,11 @@ export function TokenBalances({ accountId, ordinalsBalance }: TokenBalancesProps
   useEffect(() => {
     loadTokenData();
   }, [accountId]);
+
+  useEffect(() => {
+    // Update tokens when Lightning connection or wallet info changes
+    updateTokensWithLightning();
+  }, [walletInfo, breezConnected]);
 
   const loadTokenData = async () => {
     setLoading(true);
@@ -489,6 +597,28 @@ export function TokenBalances({ accountId, ordinalsBalance }: TokenBalancesProps
     }
   };
 
+  const updateTokensWithLightning = async () => {
+    if (!walletInfo) return;
+
+    try {
+      const currentTokens = await TokenStorage.loadTokens(accountId);
+      
+      // Remove existing Lightning token
+      const filteredTokens = currentTokens.filter(token => !token.isLightning);
+      
+      // Add new Lightning token if connected
+      if (breezConnected && walletInfo.balanceSat > 0) {
+        const lightningToken = TokenStorage.createLightningToken(walletInfo);
+        filteredTokens.unshift(lightningToken); // Add to beginning
+      }
+      
+      setTokens(filteredTokens);
+      await TokenStorage.saveTokens(accountId, filteredTokens);
+    } catch (error) {
+      console.error('Failed to update Lightning tokens:', error);
+    }
+  };
+
   const getFilteredTokens = () => {
     let filtered = tokens;
     
@@ -496,16 +626,23 @@ export function TokenBalances({ accountId, ordinalsBalance }: TokenBalancesProps
       filtered = tokens.filter(token => token.type === activeFilter);
     }
     
-    // Always show BTC first if it's in the filtered results
-    const btcToken = filtered.find(token => token.isNative);
-    const otherTokens = filtered.filter(token => !token.isNative);
+    // Always show Lightning and BTC first if they're in the filtered results
+    const lightningToken = filtered.find(token => token.isLightning);
+    const btcToken = filtered.find(token => token.isNative && !token.isLightning);
+    const otherTokens = filtered.filter(token => !token.isNative && !token.isLightning);
     
-    return btcToken ? [btcToken, ...otherTokens] : otherTokens;
+    const sortedTokens = [];
+    if (lightningToken) sortedTokens.push(lightningToken);
+    if (btcToken) sortedTokens.push(btcToken);
+    sortedTokens.push(...otherTokens);
+    
+    return sortedTokens;
   };
 
   const getTokenCounts = () => {
     const counts: { [key: string]: number } = {
       ALL: tokens.length,
+      LIGHTNING: tokens.filter(token => token.type === 'LIGHTNING').length,
       BTC: tokens.filter(token => token.type === 'BTC').length,
       'BRC-20': tokens.filter(token => token.type === 'BRC-20').length,
       RUNES: tokens.filter(token => token.type === 'RUNES').length,
@@ -515,20 +652,32 @@ export function TokenBalances({ accountId, ordinalsBalance }: TokenBalancesProps
   };
 
   const handleTokenPress = (token: Token) => {
+    let balanceDisplay = token.balance;
+    let valueDisplay = token.usdValue ? `$${(parseFloat(token.balance) * token.usdValue).toLocaleString()}` : 'No price data';
+    
+    if (token.isLightning) {
+      balanceDisplay = PaymentService.formatAmount(Math.floor(parseFloat(token.balance) * 100000000));
+      valueDisplay = `$${(walletInfo!.balanceSat / 100000000 * 43000).toLocaleString()}`;
+    }
+
+    const statusText = token.isLightning 
+      ? `\nStatus: ${breezConnected ? '⚡ Connected' : '❌ Offline'}`
+      : '';
+
     Alert.alert(
       `${token.emoji} ${token.name}`,
-      `Balance: ${token.balance} ${token.symbol}\n${token.usdValue ? `Value: $${(parseFloat(token.balance) * token.usdValue).toLocaleString()}` : 'No price data'}`,
+      `Balance: ${balanceDisplay}\nValue: ${valueDisplay}${statusText}`,
       [
-        { text: 'Send', onPress: () => Alert.alert('🚀 Send', 'Send functionality coming soon!') },
-        { text: 'Receive', onPress: () => Alert.alert('📱 Receive', 'Receive functionality coming soon!') },
+        { text: 'Send', onPress: () => Alert.alert('🚀 Send', 'Send functionality available in main app!') },
+        { text: 'Receive', onPress: () => Alert.alert('📱 Receive', 'Receive functionality available in main app!') },
         { text: 'Close', style: 'cancel' },
       ]
     );
   };
 
   const handleTokenLongPress = (token: Token) => {
-    if (token.isNative) {
-      Alert.alert('🚫 Cannot Hide', 'Cannot hide native Bitcoin balance!');
+    if (token.isNative || token.isLightning) {
+      Alert.alert('🚫 Cannot Hide', 'Cannot hide native Bitcoin or Lightning balance!');
       return;
     }
 
@@ -567,7 +716,6 @@ export function TokenBalances({ accountId, ordinalsBalance }: TokenBalancesProps
 
   return (
     <View style={styles.container}>
-      {/* <PortfolioSummary tokens={tokens} hiddenTokens={hiddenTokens} /> */}
       
       <TokenFilter 
         activeFilter={activeFilter}
@@ -583,6 +731,7 @@ export function TokenBalances({ accountId, ordinalsBalance }: TokenBalancesProps
             onPress={() => handleTokenPress(token)}
             onLongPress={() => handleTokenLongPress(token)}
             isHidden={hiddenTokens.includes(token.id)}
+            isLightningConnected={breezConnected}
           />
         ))}
         
@@ -590,7 +739,12 @@ export function TokenBalances({ accountId, ordinalsBalance }: TokenBalancesProps
           <View style={styles.emptyState}>
             <Text style={styles.emptyEmoji}>🫗</Text>
             <Text style={styles.emptyTitle}>No tokens found</Text>
-            <Text style={styles.emptyText}>Try changing the filter or add some tokens!</Text>
+            <Text style={styles.emptyText}>
+              {activeFilter === 'LIGHTNING' && !breezConnected 
+                ? 'Connect to Lightning Network to see Lightning balance'
+                : 'Try changing the filter or add some tokens!'
+              }
+            </Text>
           </View>
         )}
       </ScrollView>
@@ -714,6 +868,21 @@ const styles = StyleSheet.create({
     bottom: 0,
     borderRadius: 12,
   },
+  lightningIndicator: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(255, 215, 0, 0.8)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    zIndex: 10,
+  },
+  lightningBadgeText: {
+    fontSize: 8,
+    fontWeight: '800',
+    color: '#000000',
+  },
   tokenItemInner: {
     padding: 16,
   },
@@ -745,10 +914,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
+    marginRight: 6,
   },
   tokenType: {
     fontSize: 8,
     fontWeight: '700',
+  },
+  lightningBadge: {
+    backgroundColor: 'rgba(255, 215, 0, 0.3)',
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderRadius: 4,
   },
   tokenName: {
     fontSize: 12,

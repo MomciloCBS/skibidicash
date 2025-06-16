@@ -1,4 +1,4 @@
-// components/GameContent.tsx - Updated Game Tab with Game List and Skibidi Clicker
+// components/SkibidiGameContent.tsx - Updated with Payment Props
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -8,10 +8,12 @@ import {
   ScrollView,
   Vibration,
   Dimensions,
+  Alert,
 } from 'react-native';
 import { SkibidiColors } from '../theme/SkibidiTheme';
 import { Skibidi3D } from './Skibidi3D';
 import { PointAnimation } from './PointAnimation';
+import { PaymentService } from '../services/PaymentService';
 
 const { width, height } = Dimensions.get('window');
 
@@ -24,8 +26,27 @@ interface Game {
   points?: number;
 }
 
+// Props for the main component
+interface SkibidiGameContentProps {
+  onSendPayment?: (destination: string, amountSats?: number) => Promise<any>;
+  onReceivePayment?: (amountSats?: number, description?: string) => Promise<any>;
+  onGetTestCoins?: () => void;
+  playerBalance?: number;
+  isLightningReady?: boolean;
+}
+
 // Skibidi Clicker Game Component
-function SkibidiClickerGame({ onBack }: { onBack: () => void }) {
+function SkibidiClickerGame({ 
+  onBack, 
+  playerBalance, 
+  isLightningReady, 
+  onReceivePayment 
+}: { 
+  onBack: () => void;
+  playerBalance?: number;
+  isLightningReady?: boolean;
+  onReceivePayment?: (amountSats?: number, description?: string) => Promise<any>;
+}) {
   const [points, setPoints] = useState(0);
   const [spinSpeed, setSpinSpeed] = useState(0);
   const [animations, setAnimations] = useState<Array<{
@@ -98,6 +119,46 @@ function SkibidiClickerGame({ onBack }: { onBack: () => void }) {
     setAnimations(prev => prev.filter(anim => anim.id !== id));
   };
 
+  const handleCashOut = async () => {
+    if (!isLightningReady || !onReceivePayment) {
+      Alert.alert(
+        '⚡ Lightning Required',
+        'You need Lightning Network connection to cash out your Skibidi points!'
+      );
+      return;
+    }
+
+    if (points < 100) {
+      Alert.alert(
+        '💸 Not Enough Points',
+        'You need at least 100 Skibidi points to cash out (1 sat = 100 points)'
+      );
+      return;
+    }
+
+    const satsToReceive = Math.floor(points / 100); // 100 points = 1 sat
+    
+    Alert.alert(
+      '💰 Cash Out Skibidi Points',
+      `Convert ${points} points to ${satsToReceive} sats?\n\nThis will create a Lightning invoice.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Cash Out!',
+          onPress: async () => {
+            try {
+              await onReceivePayment(satsToReceive, `Skibidi Clicker cash out: ${points} points → ${satsToReceive} sats`);
+              setPoints(prev => prev - (satsToReceive * 100)); // Deduct points
+              Alert.alert('🎉 Success!', `Invoice created for ${satsToReceive} sats!`);
+            } catch (error) {
+              Alert.alert('❌ Error', 'Failed to create cash out invoice');
+            }
+          }
+        }
+      ]
+    );
+  };
+
   return (
     <View style={styles.gameContainer}>
       {/* Header */}
@@ -116,6 +177,15 @@ function SkibidiClickerGame({ onBack }: { onBack: () => void }) {
           <Text style={styles.comboText}>
             🔥 COMBO x{combo} 🔥
           </Text>
+        )}
+        
+        {/* Lightning Balance Display */}
+        {isLightningReady && playerBalance !== undefined && (
+          <View style={styles.balanceDisplay}>
+            <Text style={styles.balanceText}>
+              ⚡ {PaymentService.formatAmount(playerBalance)}
+            </Text>
+          </View>
         )}
       </View>
 
@@ -139,10 +209,29 @@ function SkibidiClickerGame({ onBack }: { onBack: () => void }) {
         ))}
       </View>
 
+      {/* Cash Out Button */}
+      {points >= 100 && (
+        <View style={styles.cashOutContainer}>
+          <TouchableOpacity 
+            style={[
+              styles.cashOutButton,
+              !isLightningReady && styles.cashOutButtonDisabled
+            ]}
+            onPress={handleCashOut}
+            disabled={!isLightningReady}
+          >
+            <Text style={styles.cashOutButtonText}>
+              💰 Cash Out ({Math.floor(points / 100)} sats)
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Instructions */}
       <View style={styles.instructionsContainer}>
         <Text style={styles.instructionsText}>
-          💡 Tap the Skibidi to gain Skibidi points! Build combos for maximum chaos! 💡
+          💡 Tap the Skibidi to gain points! Build combos for maximum chaos! 
+          {isLightningReady ? ' Cash out points for real sats!' : ' Connect Lightning to cash out!'}
         </Text>
       </View>
     </View>
@@ -150,13 +239,19 @@ function SkibidiClickerGame({ onBack }: { onBack: () => void }) {
 }
 
 // Games List Component
-function GamesList({ onGameSelect }: { onGameSelect: (gameId: string) => void }) {
+function GamesList({ 
+  onGameSelect, 
+  isLightningReady 
+}: { 
+  onGameSelect: (gameId: string) => void;
+  isLightningReady?: boolean;
+}) {
   const games: Game[] = [
     {
       id: 'skibidi-clicker',
       title: 'Skibidi Clicker',
       icon: '🚽',
-      description: 'Click the Skibidi to gain Skibidi points and achieve maximum brainrot!',
+      description: 'Click the Skibidi to gain points and earn real sats!',
     },
     {
       id: 'coming-soon-1',
@@ -177,8 +272,13 @@ function GamesList({ onGameSelect }: { onGameSelect: (gameId: string) => void })
       {/* Description */}
       <View style={styles.gamesDescription}>
         <Text style={styles.descriptionText}>
-          Gain points by playing games. You already know the rest.
+          Play games, earn points, and cash out for real Bitcoin!
         </Text>
+        {isLightningReady && (
+          <Text style={styles.lightningReadyText}>
+            ⚡ Lightning connected - Cash outs enabled!
+          </Text>
+        )}
       </View>
 
       {/* Games Grid */}
@@ -206,6 +306,11 @@ function GamesList({ onGameSelect }: { onGameSelect: (gameId: string) => void })
                 <Text style={styles.comingSoonText}>SOON™</Text>
               </View>
             )}
+            {game.id === 'skibidi-clicker' && isLightningReady && (
+              <View style={styles.earningsEnabledBadge}>
+                <Text style={styles.earningsEnabledText}>💰 EARNINGS</Text>
+              </View>
+            )}
           </TouchableOpacity>
         ))}
       </View>
@@ -214,7 +319,13 @@ function GamesList({ onGameSelect }: { onGameSelect: (gameId: string) => void })
 }
 
 // Main Game Content Component (Updated)
-export function SkibidiGameContent() {
+export function SkibidiGameContent({ 
+  onSendPayment, 
+  onReceivePayment, 
+  onGetTestCoins, 
+  playerBalance, 
+  isLightningReady 
+}: SkibidiGameContentProps) {
   const [currentGame, setCurrentGame] = useState<string | null>(null);
 
   const handleGameSelect = (gameId: string) => {
@@ -226,13 +337,85 @@ export function SkibidiGameContent() {
   };
 
   if (currentGame === 'skibidi-clicker') {
-    return <SkibidiClickerGame onBack={handleBackToList} />;
+    return (
+      <SkibidiClickerGame 
+        onBack={handleBackToList}
+        playerBalance={playerBalance}
+        isLightningReady={isLightningReady}
+        onReceivePayment={onReceivePayment}
+      />
+    );
   }
 
-  return <GamesList onGameSelect={handleGameSelect} />;
+  return (
+    <GamesList 
+      onGameSelect={handleGameSelect}
+      isLightningReady={isLightningReady}
+    />
+  );
 }
 
-// Styles
+// Additional Styles for new features
+const newStyles = StyleSheet.create({
+  balanceDisplay: {
+    marginTop: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(255, 215, 0, 0.2)',
+    borderRadius: 8,
+  },
+  balanceText: {
+    fontSize: 14,
+    color: '#FFD700',
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  cashOutContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  cashOutButton: {
+    backgroundColor: SkibidiColors.crocodileGreen,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: SkibidiColors.glowGreen,
+  },
+  cashOutButtonDisabled: {
+    backgroundColor: '#666666',
+    borderColor: '#444444',
+  },
+  cashOutButtonText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: SkibidiColors.textPrimary,
+    textAlign: 'center',
+  },
+  lightningReadyText: {
+    fontSize: 14,
+    color: '#00FF88',
+    textAlign: 'center',
+    fontWeight: '600',
+    marginTop: 8,
+  },
+  earningsEnabledBadge: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    backgroundColor: SkibidiColors.crocodileGreen,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  earningsEnabledText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: SkibidiColors.textPrimary,
+  },
+});
+
+// Merge with existing styles
 const styles = StyleSheet.create({
   gamesListContainer: {
     flex: 1,
@@ -244,7 +427,7 @@ const styles = StyleSheet.create({
   },
   descriptionText: {
     fontSize: 16,
-    color: '#888888', // Light grey as requested
+    color: '#888888',
     textAlign: 'center',
     fontWeight: '400',
     lineHeight: 22,
@@ -317,13 +500,6 @@ const styles = StyleSheet.create({
     color: SkibidiColors.skibidiOrange,
     fontWeight: '700',
   },
-//   gameTitle: {
-//     fontSize: 18,
-//     fontWeight: '900',
-//     color: SkibidiColors.textPrimary,
-//     flex: 1,
-//     textAlign: 'center',
-//   },
   scoreContainer: {
     alignItems: 'center',
     paddingVertical: 20,
@@ -360,16 +536,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     position: 'relative',
   },
-  pointAnimation: {
-    position: 'absolute',
-    zIndex: 1000,
-  },
-  pointText: {
-    fontWeight: '900',
-    textShadowColor: 'rgba(0, 0, 0, 0.8)',
-    textShadowOffset: { width: 2, height: 2 },
-    textShadowRadius: 4,
-  },
   instructionsContainer: {
     paddingHorizontal: 20,
     paddingVertical: 16,
@@ -387,4 +553,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     lineHeight: 20,
   },
+  // Merge new styles
+  ...newStyles,
 });

@@ -12,7 +12,12 @@ const { width } = Dimensions.get('window');
 
 interface AnimatedBalanceCardProps {
   satoshiBalance: number;
-  ordinalsBalance?: number; // Made optional since we're not displaying it
+  ordinalsBalance?: number;
+  isLightningBalance?: boolean;
+  pendingReceive?: number;
+  pendingSend?: number;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
 }
 
 const AnimatedBalanceCard: React.FC<AnimatedBalanceCardProps> = ({

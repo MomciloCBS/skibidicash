@@ -4,5 +4,6 @@ import { BitcoinAccount } from "./BitcoinAccount";
 export interface AccountSelectorProps {
     activeAccount: BitcoinAccount;
     onAccountPress: () => void;
+    isLightningConnected?: boolean;
 }
   
